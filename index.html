@@ -218,7 +218,7 @@ const WEBHOOK_URL = "";
 const QUIZ_URL = "https://forms.office.com/r/eeybz0PFB5";
 
 // Sites. key drives image filenames: images/tmp-<key>.png + images/assembly-<key>.png
-const SITES = [
+const BASE_SITES = [
   {key:"thomastown",   label:"Thomastown, Melbourne"},
   {key:"campbellfield",label:"Campbellfield, Melbourne"},
   {key:"essendon",     label:"Essendon Fields, Melbourne"},
@@ -226,9 +226,12 @@ const SITES = [
   {key:"hamilton",     label:"Hamilton, Brisbane"},
   {key:"jandakot",     label:"Jandakot, Perth"},
   {key:"sydney",       label:"Sydney"},
-  {key:"lae",          label:"Lae, PNG"},
-  {key:"other",        label:"Other"}
+  {key:"lae",          label:"Lae, PNG"}
 ];
+// Extra sites added from the admin "Site Maps" tab are stored in localStorage (same origin).
+let CUSTOM_SITES = [];
+try { CUSTOM_SITES = JSON.parse(localStorage.getItem('ci-sites')||'[]'); } catch(e) {}
+const SITES = [...BASE_SITES, ...CUSTOM_SITES, {key:"other", label:"Other"}];
 
 // Contractor document uploads
 const DOCS = [
@@ -333,6 +336,8 @@ function makeFrame(frameEl, kind, site){
   // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
   const niceKind = kind==='tmp' ? 'Traffic Management Plan' : 'Emergency Assembly Point';
   const ico = kind==='tmp' ? '🗺️' : '📍';
+  // Prefer a map uploaded via the admin "Site Maps" tab (localStorage); else the committed PNG; else a placeholder.
+  const stored = localStorage.getItem((kind==='tmp'?'ci-tmp-':'ci-asm-')+site.key);
   const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
   frameEl.innerHTML = "";
   const img = new Image();
@@ -344,7 +349,7 @@ function makeFrame(frameEl, kind, site){
         <div class="tag">Image to be added</div>
       </div>`;
   };
-  img.src = file;
+  img.src = stored || file;
   frameEl.appendChild(img);
 }
 function showSite(site){

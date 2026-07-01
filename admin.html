@@ -100,6 +100,16 @@
   .miss-line{font-size:12px;color:var(--warn);margin-top:8px}
   .doctags{display:flex;flex-wrap:wrap;gap:4px}
   .doctag{font-size:10.5px;background:#eef3f8;color:var(--bws-blue2);border-radius:6px;padding:2px 7px}
+  /* site maps */
+  .slot{display:flex;align-items:center;gap:10px}
+  .thumb{width:72px;height:54px;border:1px solid var(--line);border-radius:7px;object-fit:cover;background:#f0f3f7;flex:0 0 auto}
+  .thumb.empty{display:grid;place-items:center;color:var(--muted);font-size:22px}
+  .slot-actions{display:flex;flex-direction:column;gap:4px}
+  .mini{font-size:11px;font-weight:600;padding:5px 9px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--bws-cyan);background:#fff;color:var(--bws-blue2);text-align:center;white-space:nowrap;margin:0}
+  .mini.set{border-color:var(--ok);color:var(--ok)}
+  .mini.danger{border-color:var(--warn);color:var(--warn)}
+  .hiddenfile{display:none}
   /* modal */
   .overlay{position:fixed;inset:0;background:rgba(15,28,45,.5);display:none;
     align-items:flex-start;justify-content:center;padding:24px;z-index:40;overflow:auto}
@@ -136,6 +146,7 @@
     <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="analytics">Analytics</div>
     <div class="tab" data-tab="data">Data</div>
+    <div class="tab" data-tab="maps">Site Maps</div>
   </div>
 </header>
 
@@ -219,6 +230,31 @@
       <div class="empty" id="dempty" style="display:none">No submissions match your search.</div>
     </div>
   </div>
+
+  <!-- ============ SITE MAPS ============ -->
+  <div class="view" id="view-maps">
+    <div class="panel">
+      <h2>Site safety maps
+        <span style="display:flex;gap:8px">
+          <button type="button" class="btn ghost" id="addSiteBtn">＋ Add site</button>
+        </span>
+      </h2>
+      <div class="demo show" style="margin:12px 16px 0">
+        Upload each site's <b>Traffic Management Plan</b> and <b>Emergency Assembly Point</b> maps.
+        They appear in the contractor form on <b>this device</b> straight away. To publish them to
+        everyone, click <b>Download</b> on each and commit the PNG to the <code>/images</code> folder
+        (or we wire live storage later). Use <b>Replace</b> any time to update a map.
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Site</th><th>Traffic Management Plan</th><th>Emergency Assembly Point</th><th></th>
+          </tr></thead>
+          <tbody id="maps-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
@@ -238,6 +274,18 @@ const CHECK_LABELS = {
   tmp:"Traffic Management Plan"
 };
 
+// Real sites (must match the form's BASE_SITES). Extra sites added here are stored in localStorage.
+const DEFAULT_SITES = [
+  {key:"thomastown",   label:"Thomastown, Melbourne"},
+  {key:"campbellfield",label:"Campbellfield, Melbourne"},
+  {key:"essendon",     label:"Essendon Fields, Melbourne"},
+  {key:"portbrisbane", label:"Port of Brisbane, Brisbane"},
+  {key:"hamilton",     label:"Hamilton, Brisbane"},
+  {key:"jandakot",     label:"Jandakot, Perth"},
+  {key:"sydney",       label:"Sydney"},
+  {key:"lae",          label:"Lae, PNG"}
+];
+
 const $ = s=>document.querySelector(s);
 let DATA = [];
 
@@ -248,7 +296,7 @@ async function load(){
     catch(e){ DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo("live fetch failed"); }
   } else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo(); }
   DATA.sort((a,b)=>(b.meta.submittedAt||"").localeCompare(a.meta.submittedAt||""));
-  buildSiteFilter(); stats(); render(); renderData(); analytics();
+  buildSiteFilter(); stats(); render(); renderData(); analytics(); renderMaps();
 }
 function flagDemo(extra){ $("#demoBanner").classList.add("show");
   $("#srcBadge").textContent="Sample data"+(extra?" ("+extra+")":""); }
@@ -375,6 +423,75 @@ function analytics(){
   hbars($("#c_doctype"), Object.entries(byType).sort((a,b)=>b[1]-a[1]));
 }
 
+/* ============================================================ SITE MAPS
+   Images are stored in localStorage (same origin as the form, so they show
+   in index.html immediately). Keys: ci-tmp-<key> and ci-asm-<key>.
+   Custom sites added here live in localStorage 'ci-sites' (shared with the form).
+   ============================================================ */
+function getCustomSites(){ try{ return JSON.parse(localStorage.getItem('ci-sites')||'[]'); }catch(e){ return []; } }
+function saveCustomSites(a){ localStorage.setItem('ci-sites', JSON.stringify(a)); }
+function imgKey(kind,key){ return (kind==='tmp'?'ci-tmp-':'ci-asm-')+key; }
+
+function slotHtml(kind,key){
+  const d=localStorage.getItem(imgKey(kind,key));
+  const thumb = d ? `<img class="thumb" src="${d}" alt="">`
+                  : `<div class="thumb empty">${kind==='tmp'?'🗺️':'📍'}</div>`;
+  return `<div class="slot">
+    ${thumb}
+    <div class="slot-actions">
+      <label class="mini ${d?'set':''}">${d?'Replace':'Upload'}<input type="file" class="hiddenfile" accept="image/*" data-kind="${kind}" data-key="${key}"></label>
+      ${d?`<button type="button" class="mini" data-act="download" data-kind="${kind}" data-key="${key}">Download</button>`:''}
+      ${d?`<button type="button" class="mini danger" data-act="remove" data-kind="${kind}" data-key="${key}">Remove</button>`:''}
+    </div>
+  </div>`;
+}
+function renderMaps(){
+  const custom=getCustomSites();
+  const sites=[...DEFAULT_SITES, ...custom];
+  $("#maps-body").innerHTML = sites.map(s=>{
+    const isCustom = custom.some(c=>c.key===s.key);
+    return `<tr>
+      <td><div class="who">${esc(s.label)}</div><div class="co">${esc(s.key)}</div></td>
+      <td>${slotHtml('tmp',s.key)}</td>
+      <td>${slotHtml('assembly',s.key)}</td>
+      <td>${isCustom?`<button type="button" class="mini danger" data-act="removesite" data-key="${s.key}">✕ site</button>`:''}</td>
+    </tr>`;
+  }).join("");
+}
+// downscale to keep localStorage small, then store as PNG data URL
+function storeImage(kind,key,file){
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=1600; let w=img.width, h=img.height;
+      if(w>max){ h=Math.round(h*max/w); w=max; }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      let dataUrl; try{ dataUrl=c.toDataURL('image/png'); }catch(e){ dataUrl=reader.result; }
+      try{ localStorage.setItem(imgKey(kind,key), dataUrl); renderMaps(); }
+      catch(err){ alert('That image is too large to store on this device. Try a smaller/compressed file.'); }
+    };
+    img.onerror=()=>alert('Could not read that image file.');
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function downloadImage(kind,key){
+  const d=localStorage.getItem(imgKey(kind,key)); if(!d) return;
+  const a=document.createElement('a'); a.href=d;
+  a.download=(kind==='tmp'?'tmp-':'assembly-')+key+'.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function addSite(){
+  const label=(prompt('New site name (as shown to contractors):')||'').trim(); if(!label) return;
+  const key=label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  if(!key){ alert('Please use a name with letters or numbers.'); return; }
+  const custom=getCustomSites();
+  if(DEFAULT_SITES.some(s=>s.key===key)||custom.some(s=>s.key===key)){ alert('That site already exists.'); return; }
+  custom.push({key,label}); saveCustomSites(custom); renderMaps();
+}
+
 /* ============================================================ ATTACHMENTS */
 function attachmentUrl(doc){
   if(doc.dataUrl) return doc.dataUrl;
@@ -478,6 +595,24 @@ $("#rows").addEventListener("click",e=>{ const tr=e.target.closest("tr"); if(tr)
 $("#drows").addEventListener("click",e=>{ const tr=e.target.closest("tr"); if(tr) openDetail(+tr.dataset.i); });
 $("#overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+
+// Site Maps events
+$("#addSiteBtn").addEventListener("click", addSite);
+$("#maps-body").addEventListener("change", e=>{
+  const inp=e.target.closest('input[type=file]'); if(!inp||!inp.files[0]) return;
+  storeImage(inp.dataset.kind, inp.dataset.key, inp.files[0]); inp.value="";
+});
+$("#maps-body").addEventListener("click", e=>{
+  const b=e.target.closest('button[data-act]'); if(!b) return;
+  const {act,kind,key}=b.dataset;
+  if(act==='download') downloadImage(kind,key);
+  else if(act==='remove'){ localStorage.removeItem(imgKey(kind,key)); renderMaps(); }
+  else if(act==='removesite'){
+    if(!confirm('Remove this site and its uploaded maps?')) return;
+    localStorage.removeItem(imgKey('tmp',key)); localStorage.removeItem(imgKey('assembly',key));
+    saveCustomSites(getCustomSites().filter(s=>s.key!==key)); renderMaps();
+  }
+});
 
 load();
 </script>
