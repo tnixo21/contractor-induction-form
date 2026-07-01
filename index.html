@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BWS Contractor Induction Checklist</title>
+<style>
+  :root{
+    --bws-blue:#003d6b; --bws-blue2:#0a5a9c; --bws-cyan:#00a3e0;
+    --ink:#1d2733; --muted:#637085; --line:#dfe5ec; --bg:#eef2f6;
+    --ok:#1f9d57; --warn:#c0392b; --warnbg:#fdecea; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+  header{background:linear-gradient(135deg,var(--bws-blue),var(--bws-blue2));
+    color:#fff;padding:18px 16px;position:sticky;top:0;z-index:20;
+    box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  header h1{margin:0;font-size:18px;letter-spacing:.3px}
+  header .sub{font-size:12px;opacity:.85;margin-top:3px}
+  .wrap{max-width:640px;margin:0 auto;padding:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px;margin:14px 0;box-shadow:0 1px 3px rgba(16,40,70,.06)}
+  .sec-title{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+  .sec-title .n{background:var(--bws-cyan);color:#fff;border-radius:8px;
+    min-width:26px;height:26px;display:grid;place-items:center;font-weight:700;font-size:13px}
+  .sec-title h2{font-size:16px;margin:0;color:var(--bws-blue)}
+  .sec-note{font-size:12px;color:var(--muted);margin:2px 0 12px 36px}
+  label.q{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
+  label.q .star{color:var(--warn);margin-left:3px}
+  .hint{font-weight:400;font-size:12px;color:var(--muted);margin-top:2px}
+  input[type=text],input[type=tel],input[type=email],input[type=date],textarea,select{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;
+    font-size:15px;background:#fff;color:var(--ink);font-family:inherit}
+  textarea{min-height:64px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bws-cyan);
+    box-shadow:0 0 0 3px rgba(0,163,224,.15)}
+  .yn{display:flex;gap:10px;margin-top:4px}
+  .yn label{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px;
+    text-align:center;font-size:14px;font-weight:600;cursor:pointer;background:#fff;
+    user-select:none}
+  .yn input{display:none}
+  .yn input:checked+span{color:#fff}
+  .yn label.yes input:checked+span{}
+  .yn label:has(input:checked){border-color:var(--bws-cyan)}
+  .yn label.yes:has(input:checked){background:var(--ok);border-color:var(--ok);color:#fff}
+  .yn label.no:has(input:checked){background:var(--warn);border-color:var(--warn);color:#fff}
+  .sites{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .sites label{border:1px solid var(--line);border-radius:9px;padding:10px;font-size:13px;
+    cursor:pointer;background:#fff;display:flex;align-items:center;gap:8px}
+  .sites label:has(input:checked){border-color:var(--bws-cyan);
+    background:#e9f7fe;font-weight:600}
+  .sites input{accent-color:var(--bws-cyan)}
+  /* Per-site image panel */
+  #sitePanel{display:none;margin-top:14px}
+  #sitePanel.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .imgGrid{display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:520px){.imgGrid{grid-template-columns:1fr 1fr}}
+  .imgBox{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .imgBox .cap{font-size:12px;font-weight:700;color:var(--bws-blue);
+    padding:8px 10px;border-bottom:1px solid var(--line);background:#f6f9fc}
+  .imgBox .frame{aspect-ratio:4/3;display:grid;place-items:center;position:relative;background:#f0f3f7}
+  .imgBox img{width:100%;height:100%;object-fit:contain;display:block}
+  .placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;
+    color:var(--muted);text-align:center;padding:14px;font-size:12px}
+  .placeholder .ico{font-size:30px;opacity:.5}
+  .placeholder .tag{font-size:10px;letter-spacing:.5px;text-transform:uppercase;
+    background:#e3e9f0;border-radius:20px;padding:3px 9px;color:#5a6b80}
+  /* file upload */
+  .uploads{display:grid;gap:10px;margin-top:6px}
+  .upload{border:1px dashed var(--line);border-radius:10px;padding:10px;background:#fafcfe}
+  .upload .ut{font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .upload input[type=file]{margin-top:8px;font-size:12px;width:100%}
+  .upload .files{margin-top:6px;font-size:11px;color:var(--muted)}
+  .req-badge{font-size:10px;background:#eef2f6;color:var(--muted);border-radius:20px;padding:2px 8px}
+  .banner{border-radius:10px;padding:12px 14px;font-size:13px;margin:12px 0;display:none}
+  .banner.warn{background:var(--warnbg);border:1px solid #f5b7b1;color:var(--warn)}
+  .banner.info{background:#eaf4fb;border:1px solid #bfe0f5;color:var(--bws-blue)}
+  a.quiz{color:var(--bws-blue2);font-weight:600}
+  .actions{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);
+    padding:14px 0 4px;margin-top:6px}
+  button.submit{width:100%;padding:15px;border:0;border-radius:11px;font-size:16px;
+    font-weight:700;color:#fff;background:var(--bws-blue);cursor:pointer}
+  button.submit:active{transform:translateY(1px)}
+  button.submit:disabled{opacity:.6;cursor:not-allowed}
+  #step2actions{display:flex;gap:10px}
+  #step2actions button.submit{width:auto;flex:1}
+  button.back{padding:15px 18px;border:1px solid var(--line);background:#fff;color:var(--bws-blue);
+    border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;flex:0 0 auto}
+  .stephint{font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.5px}
+  .err{color:var(--warn);font-size:12px;margin-top:4px;display:none}
+  .err.show{display:block}
+  .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--warn)}
+  footer{text-align:center;font-size:11px;color:var(--muted);padding:18px}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+    background:#1d2733;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.3s;z-index:50;max-width:90%}
+  .toast.show{opacity:1}
+  .config-note{font-size:11px;color:var(--muted);background:#fff8e6;border:1px solid #f3e3b3;
+    border-radius:8px;padding:8px 10px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Contractor Induction Checklist</h1>
+  <div class="sub">Blue Water Shipping &middot; Welcome to site</div>
+</header>
+
+<div class="wrap">
+<form id="form" novalidate>
+
+  <!-- ============ SECTION 1 — CONTRACTOR ============ -->
+  <div class="card" id="section1">
+    <div class="sec-title"><span class="n">1</span><h2>Contractor to complete</h2></div>
+    <div class="sec-note">Filled in by the visiting contractor.</div>
+
+    <div class="field">
+      <label class="q" for="f_date">Today's date<span class="star">*</span></label>
+      <input type="date" id="f_date" name="date" required>
+      <div class="err">Please enter the date.</div>
+    </div>
+
+    <div class="field">
+      <label class="q" for="f_name">Full name<span class="star">*</span></label>
+      <input type="text" id="f_name" name="fullName" autocomplete="name" required>
+      <div class="err">Please enter your full name.</div>
+    </div>
+
+    <div class="field">
+      <label class="q" for="f_company">Your company<span class="star">*</span></label>
+      <input type="text" id="f_company" name="company" autocomplete="organization" required>
+      <div class="err">Please enter your company.</div>
+    </div>
+
+    <div class="field">
+      <label class="q" for="f_phone">Phone number<span class="star">*</span></label>
+      <input type="tel" id="f_phone" name="phone" autocomplete="tel" required>
+      <div class="err">Please enter a phone number.</div>
+    </div>
+
+    <div class="field">
+      <label class="q" for="f_email">Email address<span class="star">*</span></label>
+      <input type="email" id="f_email" name="email" autocomplete="email" required>
+      <div class="err">Please enter a valid email.</div>
+    </div>
+
+    <div class="field" id="siteField">
+      <label class="q">Which site are you visiting?<span class="star">*</span></label>
+      <div class="sites" id="sites"><!-- injected --></div>
+      <input type="text" id="f_siteOther" name="siteOther" placeholder="Please specify other site"
+             style="display:none;margin-top:8px">
+      <div class="err">Please choose a site.</div>
+    </div>
+
+    <!-- Per-site Traffic Management Plan + Assembly point images -->
+    <div id="sitePanel">
+      <div class="banner info" style="display:block">
+        Review the site safety maps below before entering operational areas.
+      </div>
+      <div class="imgGrid">
+        <div class="imgBox">
+          <div class="cap">Traffic Management Plan (TMP)</div>
+          <div class="frame" id="tmpFrame"></div>
+        </div>
+        <div class="imgBox">
+          <div class="cap">Emergency Assembly Point</div>
+          <div class="frame" id="asmFrame"></div>
+        </div>
+      </div>
+      <div id="tmpQuestion"><!-- Traffic Management Plan confirmation rendered here --></div>
+    </div>
+
+    <!-- Contractor management document uploads (Darren's request) -->
+    <label class="q" style="margin-top:20px">Contractor documents
+      <span class="hint">Upload a clear photo or PDF of each that applies. Required for high-risk works.</span>
+    </label>
+    <div class="uploads" id="docUploads"><!-- injected --></div>
+    <div class="config-note">📷 Photos &amp; documents upload here — works on a contractor's own phone (no sign-in needed).</div>
+  </div>
+
+  <!-- ============ SECTION 2 — BWS EMPLOYEE ============ -->
+  <div class="card" id="section2" style="display:none">
+    <div class="sec-title"><span class="n">2</span><h2>Induction list</h2></div>
+    <div class="sec-note">To be completed by a BWS employee during the site walk-around.</div>
+
+    <div id="checklist"><!-- injected Yes/No + text questions --></div>
+  </div>
+
+  <div class="actions" id="step1actions">
+    <div class="stephint">Step 1 of 2 — Contractor details</div>
+    <button type="button" class="submit" id="nextBtn">Next: induction checklist →</button>
+  </div>
+  <div class="actions" id="step2actions" style="display:none">
+    <div class="stephint">Step 2 of 2 — Complete with a BWS employee</div>
+    <div style="display:flex;gap:10px">
+      <button type="button" class="back" id="backBtn">← Back</button>
+      <button type="submit" class="submit" id="submitBtn">Submit induction</button>
+    </div>
+  </div>
+
+</form>
+</div>
+
+<footer>BWS HSSEQ &middot; Contractor Induction &middot; v1 (placeholder maps — final TMP diagrams pending)</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG — edit these as the project firms up
+   ============================================================ */
+// Power Automate "When an HTTP request is received" URL.
+// Leave "" to run offline (submission downloads as JSON for testing).
+const WEBHOOK_URL = "";
+
+// Induction quiz (Q8). Reduce to 20 questions per Darren.
+const QUIZ_URL = "https://forms.office.com/r/eeybz0PFB5";
+
+// Sites. key drives image filenames: images/tmp-<key>.png + images/assembly-<key>.png
+const SITES = [
+  {key:"thomastown",   label:"Thomastown, Melbourne"},
+  {key:"campbellfield",label:"Campbellfield, Melbourne"},
+  {key:"essendon",     label:"Essendon Fields, Melbourne"},
+  {key:"portbrisbane", label:"Port of Brisbane, Brisbane"},
+  {key:"hamilton",     label:"Hamilton, Brisbane"},
+  {key:"jandakot",     label:"Jandakot, Perth"},
+  {key:"sydney",       label:"Sydney"},
+  {key:"lae",          label:"Lae, PNG"},
+  {key:"other",        label:"Other"}
+];
+
+// Contractor document uploads
+const DOCS = [
+  {key:"insurance", label:"Public Liability / Insurances"},
+  {key:"workcover", label:"WorkCover"},
+  {key:"swms",      label:"SWMS"},
+  {key:"licence",   label:"High-Risk Work Licence"},
+  {key:"drivers",   label:"Driver's Licence"}
+];
+
+// Section 2 checklist. type: yn (Yes/No) or text. req: required.
+const CHECKLIST = [
+  {id:"walkAround", type:"yn",  req:true,  q:"Execute a site walk around, discuss & identify the below areas for the inductees."},
+  {id:"assembly",   type:"yn",  req:true,  q:"Emergency Assembly point"},
+  {id:"parking",    type:"yn",  req:true,  q:"Vehicle parking area – reverse parking"},
+  {id:"smoking",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Smoking area"},
+  {id:"bathrooms",  type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Bathrooms"},
+  {id:"kitchen",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Kitchen"},
+  {id:"firstAid",   type:"yn",  req:true,  q:"First aid station"},
+  {id:"ppe",        type:"yn",  req:true,  q:"PPE / Dress code as required"},
+  {id:"incident",   type:"text",req:true,  q:"Incident reporting – who and how to report (HSSEQ or Facilities Manager)"},
+  {id:"mobile",     type:"yn",  req:true,  q:"Mobile phone usage understood – move to a safe place to take a call or text in operational areas"},
+  {id:"drugAlcohol",type:"yn",  req:true,  q:"Drug & Alcohol – random testing and zero-tolerance site"},
+  {id:"hazards",    type:"yn",  req:true,  q:"Specific hazards (if work is in a high-traffic area)"},
+  {id:"hazardsWhat",type:"text",req:false, q:"What are those hazards?", showIf:{field:"hazards", eq:"Yes"}},
+  {id:"jsea",       type:"yn",  req:true,  q:"JSEA, SWMS and SOP – mandatory for any scope of works to be carried out"},
+  {id:"jseaWhich",  type:"text",req:false, q:"Which JSEA, SWMS and SOP have been used?"},
+  {id:"tmp",        type:"yn",  req:true,  q:"Traffic Management Plan"},
+  {id:"comments",   type:"text",req:false, q:"Any training or additional comments?"},
+  {id:"completedBy",type:"text",req:true,  q:"BWS team member – completed by"}
+];
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const $ = s=>document.querySelector(s);
+let selectedSite = null;
+
+// default date = today
+$("#f_date").value = new Date().toISOString().slice(0,10);
+
+// sites
+$("#sites").innerHTML = SITES.map(s=>`
+  <label><input type="radio" name="site" value="${s.key}"><span>${s.label}</span></label>
+`).join("");
+
+// doc uploads
+$("#docUploads").innerHTML = DOCS.map(d=>`
+  <div class="upload">
+    <div class="ut"><span>${d.label}</span><span class="req-badge">if applicable</span></div>
+    <input type="file" accept="image/*,application/pdf" capture="environment"
+           multiple data-doc="${d.key}" data-label="${d.label}">
+    <div class="files" id="files_${d.key}"></div>
+  </div>`).join("");
+
+// checklist item -> HTML
+function renderItem(c){
+  const qlabel = c.link
+    ? `${c.q} – <a class="quiz" href="${c.link}" target="_blank" rel="noopener">open quiz</a>`
+    : c.q;
+  const star = c.req ? '<span class="star">*</span>' : '';
+  if(c.type==="yn"){
+    return `<div class="field" data-yn="${c.id}" data-field="${c.id}">
+      <label class="q">${qlabel}${star}</label>
+      <div class="yn">
+        <label class="yes"><input type="radio" name="${c.id}" value="Yes"><span>Yes</span></label>
+        <label class="no"><input type="radio" name="${c.id}" value="No"><span>No</span></label>
+      </div>
+      <div class="err">Please answer.</div>
+    </div>`;
+  }
+  return `<div class="field" data-field="${c.id}">
+    <label class="q" for="c_${c.id}">${qlabel}${star}</label>
+    <textarea id="c_${c.id}" name="${c.id}"></textarea>
+    <div class="err">Please answer.</div>
+  </div>`;
+}
+// Section 2 list — TMP question is rendered under the site maps instead (see below)
+$("#checklist").innerHTML = CHECKLIST.filter(c=>c.id!=="tmp").map(renderItem).join("");
+// Traffic Management Plan confirmation, shown directly beneath the per-site maps
+const tmpItem = CHECKLIST.find(c=>c.id==="tmp");
+if(tmpItem) $("#tmpQuestion").innerHTML = renderItem(tmpItem);
+
+// Conditional fields (e.g. "What are those hazards?" only when Specific hazards = Yes)
+function applyConditionals(){
+  CHECKLIST.forEach(c=>{
+    if(!c.showIf) return;
+    const wrap = document.querySelector(`[data-field="${c.id}"]`);
+    if(!wrap) return;
+    const ctrl = document.querySelector(`input[name="${c.showIf.field}"]:checked`);
+    const show = ctrl && ctrl.value===c.showIf.eq;
+    wrap.style.display = show ? "" : "none";
+    if(!show){ const t=wrap.querySelector("textarea,input"); if(t) t.value=""; }
+  });
+}
+applyConditionals();
+
+/* ============================================================
+   SITE IMAGE PANEL (placeholder-aware)
+   ============================================================ */
+function makeFrame(frameEl, kind, site){
+  // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
+  const niceKind = kind==='tmp' ? 'Traffic Management Plan' : 'Emergency Assembly Point';
+  const ico = kind==='tmp' ? '🗺️' : '📍';
+  const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
+  frameEl.innerHTML = "";
+  const img = new Image();
+  img.alt = `${niceKind} – ${site.label}`;
+  img.onerror = ()=>{
+    frameEl.innerHTML = `<div class="placeholder">
+        <div class="ico">${ico}</div>
+        <div><strong>${niceKind}</strong><br>${site.label}</div>
+        <div class="tag">Image to be added</div>
+      </div>`;
+  };
+  img.src = file;
+  frameEl.appendChild(img);
+}
+function showSite(site){
+  makeFrame($("#tmpFrame"),'tmp',site);
+  makeFrame($("#asmFrame"),'assembly',site);
+  $("#sitePanel").classList.add("show");
+}
+
+document.addEventListener("change",e=>{
+  if(e.target.name==="site"){
+    const site = SITES.find(s=>s.key===e.target.value);
+    selectedSite = site;
+    $("#f_siteOther").style.display = site.key==="other" ? "block" : "none";
+    showSite(site);
+    clearErr($("#siteField"));
+  }
+  if(e.target.matches('input[type=file]')){
+    const names=[...e.target.files].map(f=>f.name).join(", ");
+    $("#files_"+e.target.dataset.doc).textContent = names ? "Attached: "+names : "";
+  }
+  if(e.target.type==="radio") applyConditionals();
+});
+
+/* ============================================================
+   VALIDATION + SUBMIT
+   ============================================================ */
+function clearErr(field){ field && field.classList.remove("invalid");
+  const e=field&&field.querySelector(".err"); if(e)e.classList.remove("show"); }
+function setErr(field){ field.classList.add("invalid");
+  const e=field.querySelector(".err"); if(e)e.classList.add("show"); }
+
+// Step 1 — contractor identity fields + site
+function validateContractor(){
+  let firstBad=null;
+  [["#f_date"],["#f_name"],["#f_company"],["#f_phone"],["#f_email"]].forEach(([sel])=>{
+    const el=$(sel), field=el.closest(".field");
+    let bad=!el.value.trim();
+    if(el.type==="email" && el.value) bad = !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(el.value);
+    bad?(setErr(field),firstBad=firstBad||field):clearErr(field);
+  });
+  const siteSel=document.querySelector('input[name=site]:checked');
+  const sf=$("#siteField");
+  if(!siteSel){setErr(sf);firstBad=firstBad||sf;} else clearErr(sf);
+  if(siteSel && siteSel.value==="other" && !$("#f_siteOther").value.trim()){
+    setErr(sf);firstBad=firstBad||sf;
+  }
+  return firstBad;
+}
+// Step 2 — required induction checklist answers (incl. the TMP question shown under the maps)
+function validateChecklist(){
+  let firstBad=null;
+  CHECKLIST.forEach(c=>{
+    if(!c.req) return;
+    let field, ok;
+    if(c.type==="yn"){ field=document.querySelector(`[data-yn="${c.id}"]`);
+      ok=document.querySelector(`input[name="${c.id}"]:checked`); }
+    else { const el=$("#c_"+c.id); field=el.closest(".field"); ok=el.value.trim(); }
+    ok?clearErr(field):(setErr(field),firstBad=firstBad||field);
+  });
+  return firstBad;
+}
+// Two-step navigation: Section 1 (contractor) → Section 2 (with BWS employee)
+function showStep(n){
+  $("#section1").style.display = n===1 ? "" : "none";
+  $("#section2").style.display = n===2 ? "" : "none";
+  $("#step1actions").style.display = n===1 ? "" : "none";
+  $("#step2actions").style.display = n===2 ? "" : "none";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function fileToB64(file){
+  return new Promise(res=>{const r=new FileReader();
+    r.onload=()=>res({name:file.name,type:file.type,size:file.size,data:r.result.split(",")[1]});
+    r.readAsDataURL(file);});
+}
+
+async function collect(){
+  const siteSel=document.querySelector('input[name=site]:checked');
+  const site = SITES.find(s=>s.key===siteSel.value);
+  const data={
+    meta:{submittedAt:new Date().toISOString(), formVersion:"v1"},
+    section1:{
+      date:$("#f_date").value, fullName:$("#f_name").value.trim(),
+      company:$("#f_company").value.trim(), phone:$("#f_phone").value.trim(),
+      email:$("#f_email").value.trim(),
+      site: site.key==="other" ? $("#f_siteOther").value.trim() : site.label,
+      siteKey: site.key
+    },
+    section2:{}, documents:[]
+  };
+  CHECKLIST.forEach(c=>{
+    if(c.type==="yn") data.section2[c.id]=(document.querySelector(`input[name="${c.id}"]:checked`)||{}).value||"";
+    else data.section2[c.id]=$("#c_"+c.id).value.trim();
+  });
+  // attachments
+  for(const inp of document.querySelectorAll('input[type=file]')){
+    for(const f of inp.files){
+      const b=await fileToB64(f);
+      data.documents.push({docType:inp.dataset.label, ...b});
+    }
+  }
+  return data;
+}
+
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3800);}
+
+// Step 1 → Step 2
+$("#nextBtn").addEventListener("click",()=>{
+  const bad=validateContractor();
+  if(bad){ bad.scrollIntoView({behavior:"smooth",block:"center"});
+    toast("Please complete your details before continuing."); return; }
+  showStep(2);
+});
+$("#backBtn").addEventListener("click",()=>showStep(1));
+
+$("#form").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const bad = validateContractor() || validateChecklist();
+  if(bad){
+    showStep($("#section1").contains(bad) ? 1 : 2);
+    bad.scrollIntoView({behavior:"smooth",block:"center"});
+    toast("Please complete the highlighted fields."); return;
+  }
+  const btn=$("#submitBtn"); btn.disabled=true; btn.textContent="Submitting…";
+  try{
+    const payload=await collect();
+    if(WEBHOOK_URL){
+      const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)});
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      toast("✓ Induction submitted. Thank you.");
+      btn.textContent="Submitted ✓";
+    } else {
+      // offline / testing mode
+      const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+      a.download=`induction-${payload.section1.siteKey}-${payload.section1.fullName.replace(/\s+/g,'_')}.json`;
+      a.click();
+      toast("No server configured — saved submission as JSON (test mode).");
+      btn.disabled=false; btn.textContent="Submit induction";
+    }
+  }catch(err){
+    toast("Submit failed: "+err.message+". Please try again or notify BWS.");
+    btn.disabled=false; btn.textContent="Submit induction";
+  }
+});
+</script>
+</body>
+</html>
