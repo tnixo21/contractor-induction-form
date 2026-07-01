@@ -332,14 +332,41 @@ applyConditionals();
 /* ============================================================
    SITE IMAGE PANEL (placeholder-aware)
    ============================================================ */
+// Open a stored data-URL (e.g. an uploaded PDF map) in a new tab via a blob URL (data: is blocked top-level in some browsers)
+function openDataUrl(dataUrl){
+  try{
+    const [head,b64] = dataUrl.split(',');
+    const mime = (head.match(/data:(.*?);base64/)||[])[1] || 'application/octet-stream';
+    const bin = atob(b64), arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+    window.open(URL.createObjectURL(new Blob([arr],{type:mime})), '_blank');
+  }catch(e){ window.open(dataUrl,'_blank'); }
+}
 function makeFrame(frameEl, kind, site){
   // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
   const niceKind = kind==='tmp' ? 'Traffic Management Plan' : 'Emergency Assembly Point';
   const ico = kind==='tmp' ? '🗺️' : '📍';
   // Prefer a map uploaded via the admin "Site Maps" tab (localStorage); else the committed PNG; else a placeholder.
   const stored = localStorage.getItem((kind==='tmp'?'ci-tmp-':'ci-asm-')+site.key);
-  const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
   frameEl.innerHTML = "";
+  // Uploaded image
+  if(stored && stored.startsWith('data:image')){
+    const img = new Image(); img.alt = `${niceKind} – ${site.label}`; img.src = stored;
+    frameEl.appendChild(img); return;
+  }
+  // Uploaded PDF (or other non-image file) — show a tap-to-open tile
+  if(stored && stored.startsWith('data:')){
+    const tile = document.createElement('div');
+    tile.className = 'placeholder';
+    tile.style.cursor = 'pointer';
+    tile.innerHTML = `<div class="ico">📄</div>
+        <div><strong>${niceKind}</strong><br>${site.label}</div>
+        <div class="tag">Tap to open (PDF)</div>`;
+    tile.addEventListener('click', ()=>openDataUrl(stored));
+    frameEl.appendChild(tile); return;
+  }
+  // Committed PNG in /images, else placeholder
+  const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
   const img = new Image();
   img.alt = `${niceKind} – ${site.label}`;
   img.onerror = ()=>{
@@ -349,7 +376,7 @@ function makeFrame(frameEl, kind, site){
         <div class="tag">Image to be added</div>
       </div>`;
   };
-  img.src = stored || file;
+  img.src = file;
   frameEl.appendChild(img);
 }
 function showSite(site){

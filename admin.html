@@ -434,12 +434,14 @@ function imgKey(kind,key){ return (kind==='tmp'?'ci-tmp-':'ci-asm-')+key; }
 
 function slotHtml(kind,key){
   const d=localStorage.getItem(imgKey(kind,key));
-  const thumb = d ? `<img class="thumb" src="${d}" alt="">`
-                  : `<div class="thumb empty">${kind==='tmp'?'🗺️':'📍'}</div>`;
+  const isImg = d && d.startsWith('data:image');
+  const thumb = !d ? `<div class="thumb empty">${kind==='tmp'?'🗺️':'📍'}</div>`
+              : isImg ? `<img class="thumb" src="${d}" alt="">`
+                      : `<div class="thumb empty">📄</div>`;
   return `<div class="slot">
     ${thumb}
     <div class="slot-actions">
-      <label class="mini ${d?'set':''}">${d?'Replace':'Upload'}<input type="file" class="hiddenfile" accept="image/*" data-kind="${kind}" data-key="${key}"></label>
+      <label class="mini ${d?'set':''}">${d?'Replace':'Upload'}<input type="file" class="hiddenfile" accept="image/*,application/pdf" data-kind="${kind}" data-key="${key}"></label>
       ${d?`<button type="button" class="mini" data-act="download" data-kind="${kind}" data-key="${key}">Download</button>`:''}
       ${d?`<button type="button" class="mini danger" data-act="remove" data-kind="${kind}" data-key="${key}">Remove</button>`:''}
     </div>
@@ -458,10 +460,16 @@ function renderMaps(){
     </tr>`;
   }).join("");
 }
-// downscale to keep localStorage small, then store as PNG data URL
+// Images get downscaled to a small PNG; PDFs (and other files) are stored as-is.
 function storeImage(kind,key,file){
+  const isImage = /^image\//.test(file.type);
   const reader=new FileReader();
   reader.onload=()=>{
+    if(!isImage){
+      try{ localStorage.setItem(imgKey(kind,key), reader.result); renderMaps(); }
+      catch(err){ alert('That file is too large to store on this device (localStorage is ~5MB). Try a smaller PDF, or upload an image instead.'); }
+      return;
+    }
     const img=new Image();
     img.onload=()=>{
       const max=1600; let w=img.width, h=img.height;
@@ -479,8 +487,10 @@ function storeImage(kind,key,file){
 }
 function downloadImage(kind,key){
   const d=localStorage.getItem(imgKey(kind,key)); if(!d) return;
+  const mime=(d.match(/^data:(.*?);base64/)||[])[1]||'';
+  const ext = mime==='application/pdf' ? '.pdf' : mime==='image/jpeg' ? '.jpg' : '.png';
   const a=document.createElement('a'); a.href=d;
-  a.download=(kind==='tmp'?'tmp-':'assembly-')+key+'.png';
+  a.download=(kind==='tmp'?'tmp-':'assembly-')+key+ext;
   document.body.appendChild(a); a.click(); a.remove();
 }
 function addSite(){
