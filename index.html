@@ -8,7 +8,7 @@
   :root{
     --bws-blue:#003d6b; --bws-blue2:#0a5a9c; --bws-cyan:#00a3e0;
     --ink:#1d2733; --muted:#637085; --line:#dfe5ec; --bg:#eef2f6;
-    --ok:#1f9d57; --warn:#c0392b; --warnbg:#fdecea; --card:#ffffff;
+    --ok:#1f9d57; --okbg:#eaf7ef; --warn:#c0392b; --warnbg:#fdecea; --card:#ffffff;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -93,6 +93,12 @@
   .err{color:var(--warn);font-size:12px;margin-top:4px;display:none}
   .err.show{display:block}
   .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--warn)}
+  /* answered checklist items stand out */
+  .field.answered{background:var(--okbg);border-radius:10px;margin:0 -10px;padding:0 10px;
+    box-shadow:inset 3px 0 0 var(--ok)}
+  .field.answered > label.q{color:var(--ok)}
+  .field.answered > label.q .star{color:var(--warn)}
+  .field.answered > label.q::after{content:" ✓";color:var(--ok);font-weight:800}
   footer{text-align:center;font-size:11px;color:var(--muted);padding:18px}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
     background:#1d2733;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;
@@ -329,6 +335,17 @@ function applyConditionals(){
 }
 applyConditionals();
 
+// Highlight checklist items (Section 2 + the TMP question) once they have an answer
+function isFieldAnswered(f){
+  if(f.querySelector(".yn")) return !!f.querySelector("input:checked");
+  const t=f.querySelector("textarea,input[type=text]"); return t ? !!t.value.trim() : false;
+}
+function scanAnswered(){
+  document.querySelectorAll("#section2 .field, #tmpQuestion .field").forEach(f=>
+    f.classList.toggle("answered", isFieldAnswered(f)));
+}
+scanAnswered();
+
 /* ============================================================
    SITE IMAGE PANEL (placeholder-aware)
    ============================================================ */
@@ -398,7 +415,9 @@ document.addEventListener("change",e=>{
     $("#files_"+e.target.dataset.doc).textContent = names ? "Attached: "+names : "";
   }
   if(e.target.type==="radio") applyConditionals();
+  scanAnswered();
 });
+document.addEventListener("input", scanAnswered);
 
 /* ============================================================
    VALIDATION + SUBMIT
