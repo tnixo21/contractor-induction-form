@@ -8,7 +8,7 @@
   :root{
     --bws-blue:#003d6b; --bws-blue2:#0a5a9c; --bws-cyan:#00a3e0;
     --ink:#1d2733; --muted:#637085; --line:#dfe5ec; --bg:#eef2f6;
-    --ok:#1f9d57; --okbg:#eaf7ef; --warn:#c0392b; --warnbg:#fdecea; --card:#ffffff;
+    --ok:#1f9d57; --warn:#c0392b; --warnbg:#fdecea; --card:#ffffff;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
@@ -62,6 +62,19 @@
     padding:8px 10px;border-bottom:1px solid var(--line);background:#f6f9fc}
   .imgBox .frame{aspect-ratio:4/3;display:grid;place-items:center;position:relative;background:#f0f3f7}
   .imgBox img{width:100%;height:100%;object-fit:contain;display:block}
+  /* a map is present — make it obvious */
+  .imgBox.has-map{border-color:var(--ok);box-shadow:0 0 0 2px rgba(31,157,87,.18)}
+  .imgBox.has-map .cap{background:#e7f6ee;color:var(--ok)}
+  .imgBox.has-map .cap::after{content:" ✓ ready";font-weight:800}
+  .pdfcard{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;padding:14px;text-align:center;cursor:pointer;background:linear-gradient(135deg,#e9f4fb,#e7f6ee)}
+  .pdfcard-ico{font-size:34px;line-height:1}
+  .pdfcard-txt{display:flex;flex-direction:column;gap:2px}
+  .pdfcard-txt strong{color:var(--bws-blue);font-size:14px}
+  .pdfcard-txt span{color:var(--muted);font-size:12px}
+  .pdfcard-btn{margin-top:2px;background:var(--bws-blue);color:#fff;border:0;border-radius:9px;
+    padding:10px 18px;font-weight:700;font-size:13px;cursor:pointer}
+  .pdfcard-btn:active{transform:translateY(1px)}
   .placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;
     color:var(--muted);text-align:center;padding:14px;font-size:12px}
   .placeholder .ico{font-size:30px;opacity:.5}
@@ -93,12 +106,6 @@
   .err{color:var(--warn);font-size:12px;margin-top:4px;display:none}
   .err.show{display:block}
   .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--warn)}
-  /* answered checklist items stand out */
-  .field.answered{background:var(--okbg);border-radius:10px;margin:0 -10px;padding:0 10px;
-    box-shadow:inset 3px 0 0 var(--ok)}
-  .field.answered > label.q{color:var(--ok)}
-  .field.answered > label.q .star{color:var(--warn)}
-  .field.answered > label.q::after{content:" ✓";color:var(--ok);font-weight:800}
   footer{text-align:center;font-size:11px;color:var(--muted);padding:18px}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
     background:#1d2733;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;
@@ -335,17 +342,6 @@ function applyConditionals(){
 }
 applyConditionals();
 
-// Highlight checklist items (Section 2 + the TMP question) once they have an answer
-function isFieldAnswered(f){
-  if(f.querySelector(".yn")) return !!f.querySelector("input:checked");
-  const t=f.querySelector("textarea,input[type=text]"); return t ? !!t.value.trim() : false;
-}
-function scanAnswered(){
-  document.querySelectorAll("#section2 .field, #tmpQuestion .field").forEach(f=>
-    f.classList.toggle("answered", isFieldAnswered(f)));
-}
-scanAnswered();
-
 /* ============================================================
    SITE IMAGE PANEL (placeholder-aware)
    ============================================================ */
@@ -361,32 +357,40 @@ function openDataUrl(dataUrl){
 }
 function makeFrame(frameEl, kind, site){
   // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
+  const box = frameEl.parentElement; // .imgBox — gets a "has-map" highlight when a map is present
   const niceKind = kind==='tmp' ? 'Traffic Management Plan' : 'Emergency Assembly Point';
   const ico = kind==='tmp' ? '🗺️' : '📍';
   // Prefer a map uploaded via the admin "Site Maps" tab (localStorage); else the committed PNG; else a placeholder.
   const stored = localStorage.getItem((kind==='tmp'?'ci-tmp-':'ci-asm-')+site.key);
   frameEl.innerHTML = "";
-  // Uploaded image
+  box.classList.remove('has-map');
+
+  // Uploaded image — show it (obviously present) + highlight the box
   if(stored && stored.startsWith('data:image')){
+    box.classList.add('has-map');
     const img = new Image(); img.alt = `${niceKind} – ${site.label}`; img.src = stored;
     frameEl.appendChild(img); return;
   }
-  // Uploaded PDF (or other non-image file) — show a tap-to-open tile
+  // Uploaded PDF (or other file) — clear "document available" card with a big Open button
   if(stored && stored.startsWith('data:')){
-    const tile = document.createElement('div');
-    tile.className = 'placeholder';
-    tile.style.cursor = 'pointer';
-    tile.innerHTML = `<div class="ico">📄</div>
-        <div><strong>${niceKind}</strong><br>${site.label}</div>
-        <div class="tag">Tap to open (PDF)</div>`;
-    tile.addEventListener('click', ()=>openDataUrl(stored));
-    frameEl.appendChild(tile); return;
+    box.classList.add('has-map');
+    const card = document.createElement('div');
+    card.className = 'pdfcard';
+    card.innerHTML = `<div class="pdfcard-ico">📄</div>
+        <div class="pdfcard-txt"><strong>${niceKind}</strong><span>${site.label}</span></div>
+        <button type="button" class="pdfcard-btn">Open PDF ↗</button>`;
+    const open = ()=>openDataUrl(stored);
+    card.querySelector('.pdfcard-btn').addEventListener('click', e=>{ e.stopPropagation(); open(); });
+    card.addEventListener('click', open);
+    frameEl.appendChild(card); return;
   }
-  // Committed PNG in /images, else placeholder
+  // Committed PNG in /images, else a placeholder
   const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
   const img = new Image();
   img.alt = `${niceKind} – ${site.label}`;
+  img.onload = ()=> box.classList.add('has-map');
   img.onerror = ()=>{
+    box.classList.remove('has-map');
     frameEl.innerHTML = `<div class="placeholder">
         <div class="ico">${ico}</div>
         <div><strong>${niceKind}</strong><br>${site.label}</div>
@@ -415,9 +419,7 @@ document.addEventListener("change",e=>{
     $("#files_"+e.target.dataset.doc).textContent = names ? "Attached: "+names : "";
   }
   if(e.target.type==="radio") applyConditionals();
-  scanAnswered();
 });
-document.addEventListener("input", scanAnswered);
 
 /* ============================================================
    VALIDATION + SUBMIT
