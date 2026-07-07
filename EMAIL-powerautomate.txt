@@ -1,0 +1,79 @@
+TO:      tnix@bws.dk
+SUBJECT: Power Automate – Copilot prompts for the Contractor Induction flows
+
+------------------------------------------------------------------
+Hi,
+
+Paste the prompts below into Power Automate's Copilot ("Describe it to
+design it") to build the two flows that connect the induction form and
+dashboard to SharePoint. Do the SharePoint setup first, then the flows.
+
+=== 1. SHAREPOINT SETUP (do this first) ===
+Create a SharePoint LIST called "Contractor Inductions" on the
+"Energy, Ports & Projects AU – Warehousing & Transport" site, with these
+columns (Single line of text unless noted):
+ - SubmittedAt        (Date and time)
+ - InductionDate      (Date only)
+ - FullName, Company, Phone, Email, Site, SiteKey
+ - WalkAround, EmergencyAssembly, ReverseParking, Smoking, Bathrooms,
+   Kitchen, FirstAid, PPE, MobilePhone, DrugAlcohol, Hazards, JSEA, TMP
+   (these hold "Yes"/"No" – keep them as text)
+ - IncidentReporting, HazardsWhat, JSEAWhich, Comments  (Multiple lines of text)
+ - CompletedBy
+ - DocumentCount      (Number)
+ - DocumentAreas      (Multiple lines of text)
+Contractor document photos are saved as ATTACHMENTS on each list item.
+
+=== 2. THE FORM SENDS THIS JSON (reference / sample payload) ===
+{
+ "meta": { "submittedAt": "2026-07-01T09:14:00+10:00" },
+ "section1": { "date":"2026-07-01", "fullName":"John Mercer", "company":"Mercer Electrical",
+   "phone":"0400000000", "email":"john@example.com",
+   "site":"Port of Brisbane, Brisbane", "siteKey":"portbrisbane" },
+ "section2": { "walkAround":"Yes","assembly":"Yes","parking":"Yes","smoking":"Yes",
+   "bathrooms":"Yes","kitchen":"Yes","firstAid":"Yes","ppe":"Yes",
+   "incident":"Report to HSSEQ / Facilities Manager","mobile":"Yes",
+   "drugAlcohol":"Yes","hazards":"Yes","hazardsWhat":"Forklifts near dock",
+   "jsea":"Yes","jseaWhich":"Site JSEA","tmp":"Yes","comments":"","completedBy":"Kim Donaldson" },
+ "documents": [ { "docType":"Driver's Licence","name":"licence.jpg",
+   "type":"image/jpeg","size":12345,"data":"<base64 string>" } ]
+}
+
+=== 3. FLOW 1 – SAVE SUBMISSIONS (paste into Copilot) ===
+"When an HTTP request is received containing a JSON body, create an item in
+the SharePoint list 'Contractor Inductions' on the Energy, Ports & Projects
+AU – Warehousing & Transport site, mapping the JSON fields to the columns,
+then for each item in the documents array add it as an attachment to the new
+list item, and finally send an email to tnix@bws.dk and kido@bws.dk with the
+contractor's name, company and site."
+
+Then adjust in the flow:
+ - On the trigger: "Use sample payload to generate schema" → paste the JSON above.
+ - Map section1/section2 fields to the columns. Set:
+      DocumentCount  = length(triggerBody()?['documents'])
+      DocumentAreas  = join(all docType values, "; ")
+ - Attachments: use "Add attachment", File Content = base64ToBinary(items('Apply_to_each')?['data']),
+   Name = items('Apply_to_each')?['name'].
+ - Copy the trigger's HTTP POST URL and send it to me – it goes into
+   WEBHOOK_URL in the form (index.html).
+
+=== 4. FLOW 2 – FEED THE DASHBOARD (paste into Copilot) ===
+"When an HTTP request is received, get all items from the SharePoint list
+'Contractor Inductions', and respond with the items as a JSON array."
+
+Copy that trigger URL and send it to me – it goes into DATA_URL in the
+dashboard (admin.html). Also send me the exact column names you created and
+I'll align the dashboard's field mapping to match.
+
+=== NOTES ===
+ - CORS: the form is hosted on GitHub Pages and posts from the browser. If the
+   POST is blocked by CORS, tell me and I'll switch the form to a
+   no-preflight submit (or add a tiny proxy).
+ - This gives Darren BOTH things he asked for: the email alert AND the
+   SharePoint record.
+ - Section 1 + document uploads are done by the contractor (anonymous); Section 2
+   is done on the BWS employee's signed-in device – the custom form handles both.
+
+Thanks,
+Thomas
+------------------------------------------------------------------

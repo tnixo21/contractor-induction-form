@@ -1,0 +1,36 @@
+TO:      tnix@bws.dk
+SUBJECT: Contractor Induction – online form + dashboard (QR codes attached)
+
+ATTACH:  qr-form.png  and  qr-admin.png   (both in this folder)
+
+------------------------------------------------------------------
+Hi,
+
+The contractor induction has been moved online. Two links:
+
+1. CONTRACTOR INDUCTION FORM  (this is the one to print the QR for on-site)
+   https://tnixo21.github.io/contractor-induction-form/
+   - Section 1: contractor fills in their details, selects the site
+     (the site's Traffic Management Plan + Emergency Assembly maps appear),
+     and uploads their documents (Insurances, WorkCover, SWMS, High-Risk
+     Licence, Driver's Licence).
+   - Section 2: completed with a BWS employee during the site walk-around.
+   QR: qr-form.png
+
+2. ADMIN DASHBOARD  (HSSEQ / managers only – keep this link internal)
+   https://tnixo21.github.io/contractor-induction-form/admin.html
+   - Overview, Analytics and Data tabs; view/download each contractor's
+     uploaded documents; export to CSV.
+   QR: qr-admin.png
+
+Notes:
+- The site maps (TMP + assembly point) currently show labelled placeholders
+  until the real diagrams are added.
+- The dashboard is showing sample data for now; it will show live
+  submissions once the SharePoint/Power Automate connection is set up.
+- The admin link is public at the moment (sample data only) – we'll put it
+  behind sign-in before real submissions go through.
+
+Thanks,
+Thomas
+------------------------------------------------------------------
