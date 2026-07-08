@@ -383,11 +383,15 @@ async function load(){
   try{ CFG = await CIStore.getConfigBundle(); }catch(e){ CFG={sites:[],contacts:{},checklist:null}; }
   let subs=[];
   try{ subs = await CIStore.getSubmissions(); }catch(e){ subs=[]; }
-  DATA = subs || [];
-  $("#demoBanner").classList.remove("show");
-  if(CIStore.mode==='server') $("#srcBadge").textContent = "Live data ("+DATA.length+")";
-  else if(DATA.length)        $("#srcBadge").textContent = "Local submissions ("+DATA.length+")";
-  else                        $("#srcBadge").textContent = "No submissions yet";
+  if(CIStore.mode==='server'){
+    DATA = subs; $("#demoBanner").classList.remove("show");
+    $("#srcBadge").textContent = "Live data ("+DATA.length+")";
+  } else if(subs.length){
+    DATA = subs; $("#demoBanner").classList.remove("show");
+    $("#srcBadge").textContent = "Local submissions ("+subs.length+")";
+  } else {
+    DATA = window.SAMPLE_INDUCTIONS||[]; flagDemo();   // demo fallback when no real submissions
+  }
   DATA.sort((a,b)=>(b.meta.submittedAt||"").localeCompare(a.meta.submittedAt||""));
   buildSiteFilter(); stats(); render(); renderData(); analytics(); renderMaps();
   // Questions editor works off the loaded config
