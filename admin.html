@@ -110,6 +110,13 @@
   .mini.set{border-color:var(--ok);color:var(--ok)}
   .mini.danger{border-color:var(--warn);color:var(--warn)}
   .hiddenfile{display:none}
+  /* per-site contacts */
+  .contacts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:180px}
+  .contact{display:inline-flex;align-items:center;gap:6px;background:#e9f7fe;color:var(--bws-blue2);
+    border:1px solid #bfe0f5;border-radius:20px;padding:4px 6px 4px 11px;font-size:12.5px;font-weight:600}
+  .contact .cx{border:0;background:#cfe6f6;color:var(--bws-blue);border-radius:50%;width:18px;height:18px;
+    line-height:1;font-size:11px;cursor:pointer;padding:0}
+  .contact .cx:hover{background:var(--warn);color:#fff}
   /* modal */
   .overlay{position:fixed;inset:0;background:rgba(15,28,45,.5);display:none;
     align-items:flex-start;justify-content:center;padding:24px;z-index:40;overflow:auto}
@@ -130,6 +137,24 @@
   .chk{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #eef2f6}
   .chk .yn{font-weight:700} .chk .yn.y{color:var(--ok)} .chk .yn.n{color:var(--warn)}
   .longtext{font-size:13px;background:#f6f9fc;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-top:4px}
+  /* questions editor */
+  .qlist{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+  .qrow{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;background:#fafcfe}
+  .qrow.off{opacity:.55}
+  .qrow .qnum{font-size:12px;font-weight:700;color:var(--muted);min-width:22px;padding-top:9px}
+  .qrow .qmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+  .qrow textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;
+    font-family:inherit;resize:vertical;min-height:40px}
+  .qmeta{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12.5px;color:var(--muted)}
+  .qmeta label{display:flex;align-items:center;gap:5px;cursor:pointer}
+  .qmeta .type{font-weight:700;color:var(--bws-blue2);background:#eef3f8;border-radius:6px;padding:2px 8px}
+  .qmeta .qid{font-family:monospace;font-size:11px}
+  .qrow .qdel{border:1px solid var(--warn);color:var(--warn);background:#fff;border-radius:7px;
+    padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .qdirty{display:none;margin:0 16px 14px;padding:9px 13px;border-radius:9px;font-size:12.5px;
+    background:var(--amberbg);border:1px solid #f0d9a8;color:var(--amber)}
+  .qdirty.show{display:block}
   footer{text-align:center;font-size:11px;color:var(--muted);padding:20px}
 </style>
 </head>
@@ -147,6 +172,7 @@
     <div class="tab" data-tab="analytics">Analytics</div>
     <div class="tab" data-tab="data">Data</div>
     <div class="tab" data-tab="maps">Site Maps</div>
+    <div class="tab" data-tab="questions">Questions</div>
   </div>
 </header>
 
@@ -240,19 +266,41 @@
         </span>
       </h2>
       <div class="demo show" style="margin:12px 16px 0">
-        Upload each site's <b>Traffic Management Plan</b> and <b>Emergency Assembly Point</b> maps.
-        They appear in the contractor form on <b>this device</b> straight away. To publish them to
-        everyone, click <b>Download</b> on each and commit the PNG to the <code>/images</code> folder
-        (or we wire live storage later). Use <b>Replace</b> any time to update a map.
+        Upload each site's <b>Traffic Management Plan</b> and <b>Emergency Assembly Point</b> maps
+        (PDF or image), and manage the <b>contacts</b> that appear in the form's "Who is in charge?"
+        dropdown. They appear in the contractor form on <b>this device</b> straight away. To publish
+        maps to everyone, click <b>Download</b> on each and commit the file to the <code>/images</code>
+        folder (or we wire live storage later). Use <b>Replace</b> any time to update a map.
       </div>
       <div style="overflow-x:auto">
         <table>
           <thead><tr>
-            <th>Site</th><th>Traffic Management Plan</th><th>Emergency Assembly Point</th><th></th>
+            <th>Site</th><th>Traffic Management Plan</th><th>Emergency Assembly Point</th>
+            <th>Who is in charge (contacts)</th><th></th>
           </tr></thead>
           <tbody id="maps-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ QUESTIONS (override the induction checklist) ============ -->
+  <div class="view" id="view-questions">
+    <div class="panel">
+      <h2>Induction checklist questions
+        <span style="display:flex;gap:8px">
+          <button type="button" class="btn ghost" id="addQBtn">＋ Add question</button>
+          <button type="button" class="btn ghost" id="resetQBtn">↺ Reset to defaults</button>
+          <button type="button" class="btn" id="saveQBtn">Save changes</button>
+        </span>
+      </h2>
+      <div class="demo show" style="margin:12px 16px 0">
+        Edit the wording, turn questions on/off, mark them required, or add your own. Changes apply to
+        the contractor form on <b>this device</b> after you press <b>Save</b>. Core questions can be
+        reworded or switched off but not deleted; questions you add can be removed.
+      </div>
+      <div id="q-list" class="qlist"></div>
+      <div id="qDirty" class="qdirty">You have unsaved changes — press <b>Save changes</b> to apply them to the form.</div>
     </div>
   </div>
 </div>
@@ -263,16 +311,51 @@
 <script src="data/sample-inductions.js"></script>
 <script>
 /* ============================================================ CONFIG */
-const DATA_URL = "";                                   // Power Automate "Get items" endpoint; blank = sample data
-const TODAY = new Date("2026-07-01T23:59:59+10:00");   // demo reference "now"
-const DOC_TYPES = ["Public Liability / Insurances","WorkCover","SWMS","High-Risk Work Licence","Driver's Licence"];
-const CHECK_LABELS = {
-  walkAround:"Site walk-around", assembly:"Emergency assembly point",
+const DATA_URL = "";                                   // Power Automate "Get items" endpoint; blank = local submissions, else sample
+const TODAY = new Date();                               // "now" for recency stats
+const DOC_TYPES = ["SWMS","High-Risk Work Licence","Driver's Licence"];
+// Short labels for known checklist ids (used in the detail modal). Any id not listed
+// falls back to its full question text from the effective checklist.
+const SHORT_LABELS = {
+  assembly:"Emergency assembly point",
   parking:"Reverse parking", smoking:"Smoking area", bathrooms:"Bathrooms", kitchen:"Kitchen",
-  firstAid:"First aid station", ppe:"PPE / dress code", mobile:"Mobile phone usage",
-  drugAlcohol:"Drug & alcohol policy", hazards:"Specific hazards", jsea:"JSEA / SWMS / SOP",
-  tmp:"Traffic Management Plan"
+  firstAid:"First aid station", ppe:"PPE / dress code", photos:"Photos / videos policy",
+  mobile:"Mobile phone usage", drugAlcohol:"Drug & alcohol policy", hazards:"Specific hazards",
+  jsea:"JSEA / SWMS / SOP", tmp:"Traffic Management Plan"
 };
+
+// DEFAULT checklist — must mirror index.html's DEFAULT_CHECKLIST. Overrides saved here to
+// localStorage 'ci-checklist' are read by the contractor form on the same device/origin.
+const DEFAULT_CHECKLIST = [
+  {id:"assembly",   type:"yn",  req:true,  q:"Emergency Assembly point"},
+  {id:"parking",    type:"yn",  req:true,  q:"Vehicle parking area – reverse parking"},
+  {id:"smoking",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Smoking area"},
+  {id:"bathrooms",  type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Bathrooms"},
+  {id:"kitchen",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Kitchen"},
+  {id:"firstAid",   type:"yn",  req:true,  q:"First aid station"},
+  {id:"ppe",        type:"yn",  req:true,  q:"PPE / Dress code as required"},
+  {id:"photos",     type:"yn",  req:true,  q:"Photos and videos are not to be taken on site without permission"},
+  {id:"mobile",     type:"yn",  req:true,  q:"Mobile phone usage understood – move to a safe place to take a call or text in operational areas"},
+  {id:"drugAlcohol",type:"yn",  req:true,  q:"Drug & Alcohol – random testing and zero-tolerance site"},
+  {id:"hazards",    type:"yn",  req:true,  q:"Specific hazards (if work is in a high-traffic area)"},
+  {id:"hazardsWhat",type:"text",req:false, q:"What are those hazards?", showIf:{field:"hazards", eq:"Yes"}},
+  {id:"jsea",       type:"yn",  req:true,  q:"JSEA, SWMS and SOP – mandatory for any scope of works to be carried out"},
+  {id:"jseaWhich",  type:"text",req:false, q:"Which JSEA, SWMS and SOP have been used?"},
+  {id:"tmp",        type:"yn",  req:true,  q:"Traffic Management Plan"},
+  {id:"comments",   type:"text",req:false, q:"Any training or additional comments?"},
+  {id:"completedBy",type:"text",req:true,  q:"BWS team member – completed by"}
+];
+function getChecklist(){
+  try{ const o=JSON.parse(localStorage.getItem('ci-checklist')||'null');
+    if(Array.isArray(o)&&o.length) return o; }catch(e){}
+  return DEFAULT_CHECKLIST.map(c=>({...c}));
+}
+// Labels used by the detail modal — derived from the effective (possibly overridden) checklist.
+function checkLabels(){
+  const m={};
+  getChecklist().forEach(c=>{ if(c.type==='yn' && c.enabled!==false) m[c.id]=SHORT_LABELS[c.id]||c.q; });
+  return m;
+}
 
 // Real sites (must match the form's BASE_SITES). Extra sites added here are stored in localStorage.
 const DEFAULT_SITES = [
@@ -290,11 +373,16 @@ const $ = s=>document.querySelector(s);
 let DATA = [];
 
 /* ============================================================ LOAD */
+function getLocalSubs(){ try{ return JSON.parse(localStorage.getItem('ci-submissions')||'[]'); }catch(e){ return []; } }
 async function load(){
   if(DATA_URL){
     try{ const r=await fetch(DATA_URL); DATA=await r.json(); $("#srcBadge").textContent="Live data"; }
-    catch(e){ DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo("live fetch failed"); }
-  } else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo(); }
+    catch(e){ DATA=getLocalSubs(); if(DATA.length){ $("#srcBadge").textContent="Local submissions ("+DATA.length+")"; } else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo("live fetch failed"); } }
+  } else {
+    const local=getLocalSubs();
+    if(local.length){ DATA=local; $("#demoBanner").classList.remove("show"); $("#srcBadge").textContent="Local submissions ("+local.length+")"; }
+    else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo(); }
+  }
   DATA.sort((a,b)=>(b.meta.submittedAt||"").localeCompare(a.meta.submittedAt||""));
   buildSiteFilter(); stats(); render(); renderData(); analytics(); renderMaps();
 }
@@ -447,6 +535,17 @@ function slotHtml(kind,key){
     </div>
   </div>`;
 }
+// Per-site contacts for the form's "Who is in charge?" dropdown (localStorage, same origin).
+function getContacts(key){ try{ return JSON.parse(localStorage.getItem('ci-contacts-'+key)||'[]'); }catch(e){ return []; } }
+function saveContacts(key,a){ localStorage.setItem('ci-contacts-'+key, JSON.stringify(a)); }
+function contactsHtml(key){
+  const list=getContacts(key);
+  const chips = list.length
+    ? list.map((c,idx)=>`<span class="contact"><span>${esc(c)}</span><button type="button" class="cx" data-act="delcontact" data-key="${key}" data-idx="${idx}" title="Remove">✕</button></span>`).join("")
+    : '<span class="co">None yet</span>';
+  return `<div class="contacts">${chips}
+    <button type="button" class="mini" data-act="addcontact" data-key="${key}">＋ Add contact</button></div>`;
+}
 function renderMaps(){
   const custom=getCustomSites();
   const sites=[...DEFAULT_SITES, ...custom];
@@ -456,6 +555,7 @@ function renderMaps(){
       <td><div class="who">${esc(s.label)}</div><div class="co">${esc(s.key)}</div></td>
       <td>${slotHtml('tmp',s.key)}</td>
       <td>${slotHtml('assembly',s.key)}</td>
+      <td>${contactsHtml(s.key)}</td>
       <td>${isCustom?`<button type="button" class="mini danger" data-act="removesite" data-key="${s.key}">✕ site</button>`:''}</td>
     </tr>`;
   }).join("");
@@ -555,7 +655,10 @@ function openDetail(i){
   const have=new Set(docs.map(d=>d.docType));
   const missing=DOC_TYPES.filter(t=>!have.has(t));
   const missLine = missing.length ? `<div class="miss-line">Not provided: ${missing.map(esc).join(", ")}</div>` : "";
-  const checks=Object.keys(CHECK_LABELS).map(k=>ynRow(CHECK_LABELS[k],s2[k])).join("");
+  const LBL=checkLabels();
+  const checks=Object.keys(LBL).map(k=>ynRow(LBL[k],s2[k])).join("");
+  const inCharge = s1.inCharge || s2.incident || "—";
+  const engaged = s1.engaged || "—";
   $("#modal").innerHTML=`
     <div class="mh">
       <div><h3>${esc(s1.fullName)}</h3>
@@ -568,6 +671,8 @@ function openDetail(i){
         <span class="key">Phone</span><span class="val">${esc(s1.phone)}</span>
         <span class="key">Email</span><span class="val">${esc(s1.email)}</span>
         <span class="key">Site</span><span class="val">${esc(s1.site)}</span>
+        <span class="key">Person in charge</span><span class="val">${esc(inCharge)}</span>
+        <span class="key">Engaged by Blue Water</span><span class="val">${esc(engaged)}</span>
         <span class="key">Quiz result</span><span class="val">${r.quizPassed?'<span class="pill pass">Passed</span>':'<span class="pill fail">Failed</span>'}</span>
       </div>
       <div class="msec">Documents &amp; attachments (${docs.length})</div>
@@ -581,7 +686,6 @@ function openDetail(i){
       <div class="msec">Sign-off</div>
       <div class="kv">
         <span class="key">Inducted by (BWS)</span><span class="val">${esc(s2.completedBy)}</span>
-        <span class="key">Incident reporting</span><span class="val" style="font-weight:400;text-align:right">${esc(s2.incident)}</span>
         <span class="key">Submitted</span><span class="val">${new Date(r.meta.submittedAt).toLocaleString('en-AU')}</span>
       </div>
     </div>`;
@@ -614,15 +718,85 @@ $("#maps-body").addEventListener("change", e=>{
 });
 $("#maps-body").addEventListener("click", e=>{
   const b=e.target.closest('button[data-act]'); if(!b) return;
-  const {act,kind,key}=b.dataset;
+  const {act,kind,key,idx}=b.dataset;
   if(act==='download') downloadImage(kind,key);
   else if(act==='remove'){ localStorage.removeItem(imgKey(kind,key)); renderMaps(); }
+  else if(act==='addcontact'){
+    const name=(prompt('Name of person in charge (as shown to contractors):')||'').trim();
+    if(!name) return;
+    const list=getContacts(key);
+    if(list.includes(name)){ alert('That contact is already listed.'); return; }
+    list.push(name); saveContacts(key,list); renderMaps();
+  }
+  else if(act==='delcontact'){
+    const list=getContacts(key); list.splice(+idx,1); saveContacts(key,list); renderMaps();
+  }
   else if(act==='removesite'){
-    if(!confirm('Remove this site and its uploaded maps?')) return;
+    if(!confirm('Remove this site and its uploaded maps and contacts?')) return;
     localStorage.removeItem(imgKey('tmp',key)); localStorage.removeItem(imgKey('assembly',key));
+    localStorage.removeItem('ci-contacts-'+key);
     saveCustomSites(getCustomSites().filter(s=>s.key!==key)); renderMaps();
   }
 });
+
+/* ============================================================ QUESTIONS EDITOR
+   Edits a working copy of the checklist; Save writes it to localStorage 'ci-checklist',
+   which the contractor form reads (same origin). Core questions can be reworded / toggled
+   but not deleted; added questions can be removed.
+   ============================================================ */
+const CORE_IDS = new Set(DEFAULT_CHECKLIST.map(c=>c.id));
+let QDRAFT = getChecklist().map(c=>({...c}));
+function markQDirty(v){ $("#qDirty").classList.toggle('show', v); }
+function renderQuestions(){
+  $("#q-list").innerHTML = QDRAFT.map((c,i)=>{
+    const core = CORE_IDS.has(c.id), off = c.enabled===false;
+    const typeCtl = `<select class="qtype" data-idx="${i}" title="Answer type">
+           <option value="yn"${c.type==='yn'?' selected':''}>Yes / No</option>
+           <option value="text"${c.type==='text'?' selected':''}>Text</option></select>`;
+    return `<div class="qrow ${off?'off':''}">
+      <div class="qnum">${i+1}</div>
+      <div class="qmain">
+        <textarea class="qtext" data-idx="${i}" rows="2">${esc(c.q)}</textarea>
+        <div class="qmeta">
+          ${typeCtl}
+          <label><input type="checkbox" class="qen" data-idx="${i}" ${off?'':'checked'}> Shown on form</label>
+          <label><input type="checkbox" class="qreq" data-idx="${i}" ${c.req?'checked':''}> Required</label>
+          <span class="qid">${esc(c.id)}</span>
+        </div>
+      </div>
+      ${core?'':`<button type="button" class="qdel" data-idx="${i}">Remove</button>`}
+    </div>`;
+  }).join("");
+}
+$("#q-list").addEventListener("input", e=>{
+  if(e.target.classList.contains('qtext')){ QDRAFT[+e.target.dataset.idx].q=e.target.value; markQDirty(true); }
+});
+$("#q-list").addEventListener("change", e=>{
+  const t=e.target, i=+t.dataset.idx;
+  if(t.classList.contains('qen')){ QDRAFT[i].enabled=t.checked; markQDirty(true); renderQuestions(); }
+  else if(t.classList.contains('qreq')){ QDRAFT[i].req=t.checked; markQDirty(true); }
+  else if(t.classList.contains('qtype')){ QDRAFT[i].type=t.value; markQDirty(true); }
+});
+$("#q-list").addEventListener("click", e=>{
+  const b=e.target.closest('.qdel'); if(!b) return;
+  QDRAFT.splice(+b.dataset.idx,1); markQDirty(true); renderQuestions();
+});
+$("#addQBtn").addEventListener("click", ()=>{
+  QDRAFT.push({id:'custom_'+Date.now().toString(36), type:'yn', req:true, enabled:true, q:'New question'});
+  markQDirty(true); renderQuestions();
+});
+$("#saveQBtn").addEventListener("click", ()=>{
+  const clean = QDRAFT.filter(c=>String(c.q||'').trim());
+  localStorage.setItem('ci-checklist', JSON.stringify(clean));
+  QDRAFT = clean.map(c=>({...c})); markQDirty(false); renderQuestions();
+  alert('Saved. The contractor form on this device will now use these questions.');
+});
+$("#resetQBtn").addEventListener("click", ()=>{
+  if(!confirm('Reset all questions to the defaults? This clears your overrides on this device.')) return;
+  localStorage.removeItem('ci-checklist');
+  QDRAFT = DEFAULT_CHECKLIST.map(c=>({...c})); markQDirty(false); renderQuestions();
+});
+renderQuestions();
 
 load();
 </script>

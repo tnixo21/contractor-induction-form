@@ -75,6 +75,11 @@
   .pdfcard-btn{margin-top:2px;background:var(--bws-blue);color:#fff;border:0;border-radius:9px;
     padding:10px 18px;font-weight:700;font-size:13px;cursor:pointer}
   .pdfcard-btn:active{transform:translateY(1px)}
+  /* inline PDF viewer (maps shown in the field, not downloaded) */
+  .imgBox .frame:has(.pdfview){aspect-ratio:auto;height:320px;padding:0}
+  .pdfview{width:100%;height:100%;border:0;display:block;background:#fff}
+  .pdfview-open{position:absolute;right:8px;bottom:8px;background:var(--bws-blue);color:#fff;border:0;
+    border-radius:8px;padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.25)}
   .placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;
     color:var(--muted);text-align:center;padding:14px;font-size:12px}
   .placeholder .ico{font-size:30px;opacity:.5}
@@ -167,6 +172,17 @@
       <div class="err">Please choose a site.</div>
     </div>
 
+    <!-- Who is in charge? Per-site contacts, managed from the dashboard Site Maps tab -->
+    <div class="field" id="inChargeField" style="display:none">
+      <label class="q" for="f_incharge">Who is in charge on site?<span class="star">*</span>
+        <span class="hint">Your BWS contact supervising this visit. Report any incident to this person.</span>
+      </label>
+      <select id="f_incharge" name="inCharge"><option value="">Select…</option></select>
+      <input type="text" id="f_inchargeOther" name="inChargeOther" placeholder="Name of person in charge"
+             style="display:none;margin-top:8px">
+      <div class="err">Please select who is in charge.</div>
+    </div>
+
     <!-- Per-site Traffic Management Plan + Assembly point images -->
     <div id="sitePanel">
       <div class="banner info" style="display:block">
@@ -191,6 +207,17 @@
     </label>
     <div class="uploads" id="docUploads"><!-- injected --></div>
     <div class="config-note">📷 Photos &amp; documents upload here — works on a contractor's own phone (no sign-in needed).</div>
+
+    <!-- Engaged by Blue Water? — always shown, last question on page 1.
+         Its answer (name="engaged") can drive Section-2 questions via showIf:{field:"engaged", eq:"No"} — see applyConditionals(). -->
+    <div class="field" id="engagedField" data-field="engaged" style="margin-top:20px">
+      <label class="q">Have you been engaged by Blue Water to come to this site?<span class="star">*</span></label>
+      <div class="yn">
+        <label class="yes"><input type="radio" name="engaged" value="Yes"><span>Yes</span></label>
+        <label class="no"><input type="radio" name="engaged" value="No"><span>No</span></label>
+      </div>
+      <div class="err">Please answer.</div>
+    </div>
   </div>
 
   <!-- ============ SECTION 2 — BWS EMPLOYEE ============ -->
@@ -248,16 +275,15 @@ const SITES = [...BASE_SITES, ...CUSTOM_SITES, {key:"other", label:"Other"}];
 
 // Contractor document uploads
 const DOCS = [
-  {key:"insurance", label:"Public Liability / Insurances"},
-  {key:"workcover", label:"WorkCover"},
   {key:"swms",      label:"SWMS"},
   {key:"licence",   label:"High-Risk Work Licence"},
   {key:"drivers",   label:"Driver's Licence"}
 ];
 
-// Section 2 checklist. type: yn (Yes/No) or text. req: required.
-const CHECKLIST = [
-  {id:"walkAround", type:"yn",  req:true,  q:"Execute a site walk around, discuss & identify the below areas for the inductees."},
+// Section 2 checklist. type: yn (Yes/No) or text. req: required. enabled:false hides it.
+// These are the DEFAULTS — the admin dashboard can override the wording / required /
+// enabled state (and add questions), stored in localStorage 'ci-checklist' (same origin).
+const DEFAULT_CHECKLIST = [
   {id:"assembly",   type:"yn",  req:true,  q:"Emergency Assembly point"},
   {id:"parking",    type:"yn",  req:true,  q:"Vehicle parking area – reverse parking"},
   {id:"smoking",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Smoking area"},
@@ -265,7 +291,7 @@ const CHECKLIST = [
   {id:"kitchen",    type:"yn",  req:true,  q:"Housekeeping & Hygiene requirements – Kitchen"},
   {id:"firstAid",   type:"yn",  req:true,  q:"First aid station"},
   {id:"ppe",        type:"yn",  req:true,  q:"PPE / Dress code as required"},
-  {id:"incident",   type:"text",req:true,  q:"Incident reporting – who and how to report (HSSEQ or Facilities Manager)"},
+  {id:"photos",     type:"yn",  req:true,  q:"Photos and videos are not to be taken on site without permission"},
   {id:"mobile",     type:"yn",  req:true,  q:"Mobile phone usage understood – move to a safe place to take a call or text in operational areas"},
   {id:"drugAlcohol",type:"yn",  req:true,  q:"Drug & Alcohol – random testing and zero-tolerance site"},
   {id:"hazards",    type:"yn",  req:true,  q:"Specific hazards (if work is in a high-traffic area)"},
@@ -276,6 +302,14 @@ const CHECKLIST = [
   {id:"comments",   type:"text",req:false, q:"Any training or additional comments?"},
   {id:"completedBy",type:"text",req:true,  q:"BWS team member – completed by"}
 ];
+// Apply admin overrides from the dashboard if present.
+let CHECKLIST = DEFAULT_CHECKLIST;
+try {
+  const ov = JSON.parse(localStorage.getItem('ci-checklist')||'null');
+  if(Array.isArray(ov) && ov.length) CHECKLIST = ov;
+} catch(e) {}
+// Only enabled items are shown / validated / collected.
+const ACTIVE = CHECKLIST.filter(c=>c.enabled!==false);
 
 /* ============================================================
    RENDER
@@ -323,19 +357,29 @@ function renderItem(c){
   </div>`;
 }
 // Section 2 list — TMP question is rendered under the site maps instead (see below)
-$("#checklist").innerHTML = CHECKLIST.filter(c=>c.id!=="tmp").map(renderItem).join("");
+$("#checklist").innerHTML = ACTIVE.filter(c=>c.id!=="tmp").map(renderItem).join("");
 // Traffic Management Plan confirmation, shown directly beneath the per-site maps
-const tmpItem = CHECKLIST.find(c=>c.id==="tmp");
+const tmpItem = ACTIVE.find(c=>c.id==="tmp");
 if(tmpItem) $("#tmpQuestion").innerHTML = renderItem(tmpItem);
 
 // Conditional fields (e.g. "What are those hazards?" only when Specific hazards = Yes)
+// Current answer of any named control — radio (checked), or select/text value.
+// Works across sections, so a Section-2 question can key off a Section-1 field like "engaged".
+function answerOf(name){
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  if(checked) return checked.value;
+  const el = document.querySelector(`select[name="${name}"],input[name="${name}"],textarea[name="${name}"]`);
+  return el ? el.value : "";
+}
+// showIf:{field, eq} hides a question until `field` answers `eq`. `field` may be any
+// question id OR a Section-1 field (e.g. {field:"engaged", eq:"No"}). Groundwork only —
+// no such conditional is wired to `engaged` yet.
 function applyConditionals(){
-  CHECKLIST.forEach(c=>{
+  ACTIVE.forEach(c=>{
     if(!c.showIf) return;
     const wrap = document.querySelector(`[data-field="${c.id}"]`);
     if(!wrap) return;
-    const ctrl = document.querySelector(`input[name="${c.showIf.field}"]:checked`);
-    const show = ctrl && ctrl.value===c.showIf.eq;
+    const show = answerOf(c.showIf.field)===c.showIf.eq;
     wrap.style.display = show ? "" : "none";
     if(!show){ const t=wrap.querySelector("textarea,input"); if(t) t.value=""; }
   });
@@ -346,14 +390,18 @@ applyConditionals();
    SITE IMAGE PANEL (placeholder-aware)
    ============================================================ */
 // Open a stored data-URL (e.g. an uploaded PDF map) in a new tab via a blob URL (data: is blocked top-level in some browsers)
-function openDataUrl(dataUrl){
+function dataUrlToObjectUrl(dataUrl){
   try{
     const [head,b64] = dataUrl.split(',');
     const mime = (head.match(/data:(.*?);base64/)||[])[1] || 'application/octet-stream';
     const bin = atob(b64), arr = new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
-    window.open(URL.createObjectURL(new Blob([arr],{type:mime})), '_blank');
-  }catch(e){ window.open(dataUrl,'_blank'); }
+    return URL.createObjectURL(new Blob([arr],{type:mime}));
+  }catch(e){ return dataUrl; }
+}
+function openDataUrl(dataUrl){
+  try{ window.open(dataUrlToObjectUrl(dataUrl), '_blank'); }
+  catch(e){ window.open(dataUrl,'_blank'); }
 }
 function makeFrame(frameEl, kind, site){
   // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
@@ -371,18 +419,23 @@ function makeFrame(frameEl, kind, site){
     const img = new Image(); img.alt = `${niceKind} – ${site.label}`; img.src = stored;
     frameEl.appendChild(img); return;
   }
-  // Uploaded PDF (or other file) — clear "document available" card with a big Open button
+  // Uploaded PDF — render it INLINE so it's viewable in the field (no forced download)
+  if(stored && stored.startsWith('data:application/pdf')){
+    box.classList.add('has-map');
+    frameEl.innerHTML = `<embed class="pdfview" type="application/pdf"
+        src="${dataUrlToObjectUrl(stored)}#toolbar=0&navpanes=0&view=FitH"
+        title="${niceKind} – ${site.label}">
+      <button type="button" class="pdfview-open">Open full screen ↗</button>`;
+    frameEl.querySelector('.pdfview-open').addEventListener('click', e=>{ e.stopPropagation(); openDataUrl(stored); });
+    return;
+  }
+  // Any other uploaded file type — inline object with a view fallback
   if(stored && stored.startsWith('data:')){
     box.classList.add('has-map');
-    const card = document.createElement('div');
-    card.className = 'pdfcard';
-    card.innerHTML = `<div class="pdfcard-ico">📄</div>
-        <div class="pdfcard-txt"><strong>${niceKind}</strong><span>${site.label}</span></div>
-        <button type="button" class="pdfcard-btn">Open PDF ↗</button>`;
-    const open = ()=>openDataUrl(stored);
-    card.querySelector('.pdfcard-btn').addEventListener('click', e=>{ e.stopPropagation(); open(); });
-    card.addEventListener('click', open);
-    frameEl.appendChild(card); return;
+    frameEl.innerHTML = `<embed class="pdfview" src="${dataUrlToObjectUrl(stored)}" title="${niceKind} – ${site.label}">
+      <button type="button" class="pdfview-open">Open full screen ↗</button>`;
+    frameEl.querySelector('.pdfview-open').addEventListener('click', e=>{ e.stopPropagation(); openDataUrl(stored); });
+    return;
   }
   // Committed PNG in /images, else a placeholder
   const file = `images/${kind==='tmp'?'tmp':'assembly'}-${site.key}.png`;
@@ -400,10 +453,24 @@ function makeFrame(frameEl, kind, site){
   img.src = file;
   frameEl.appendChild(img);
 }
+function escHtml(s){ return String(s==null?"":s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+// Per-site "who is in charge" contacts, managed from the dashboard Site Maps tab (same origin).
+function getContacts(key){ try{ return JSON.parse(localStorage.getItem('ci-contacts-'+key)||'[]'); }catch(e){ return []; } }
+function populateContacts(site){
+  const sel=$("#f_incharge"), other=$("#f_inchargeOther");
+  const list=getContacts(site.key);
+  sel.innerHTML = `<option value="">Select…</option>`
+    + list.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("")
+    + `<option value="__other">Other…</option>`;
+  other.style.display="none"; other.value="";
+}
 function showSite(site){
   makeFrame($("#tmpFrame"),'tmp',site);
   makeFrame($("#asmFrame"),'assembly',site);
   $("#sitePanel").classList.add("show");
+  populateContacts(site);
+  $("#inChargeField").style.display="";
+  // #engagedField is always visible (bottom of page 1) — not toggled here.
 }
 
 document.addEventListener("change",e=>{
@@ -414,6 +481,13 @@ document.addEventListener("change",e=>{
     showSite(site);
     clearErr($("#siteField"));
   }
+  if(e.target.id==="f_incharge"){
+    const isOther = e.target.value==="__other";
+    $("#f_inchargeOther").style.display = isOther ? "block" : "none";
+    if(!isOther) $("#f_inchargeOther").value="";
+    clearErr($("#inChargeField"));
+  }
+  if(e.target.name==="engaged") clearErr($("#engagedField"));
   if(e.target.matches('input[type=file]')){
     const names=[...e.target.files].map(f=>f.name).join(", ");
     $("#files_"+e.target.dataset.doc).textContent = names ? "Attached: "+names : "";
@@ -444,12 +518,19 @@ function validateContractor(){
   if(siteSel && siteSel.value==="other" && !$("#f_siteOther").value.trim()){
     setErr(sf);firstBad=firstBad||sf;
   }
+  // Who is in charge (per-site dropdown, "Other…" needs a name)
+  const icf=$("#inChargeField"), icv=$("#f_incharge").value;
+  let icBad = !icv || (icv==="__other" && !$("#f_inchargeOther").value.trim());
+  if(siteSel && icBad){ setErr(icf); firstBad=firstBad||icf; } else clearErr(icf);
+  // Engaged by Blue Water? — always required (bottom of page 1, shown regardless of site)
+  const ef=$("#engagedField"), eng=document.querySelector('input[name=engaged]:checked');
+  if(!eng){ setErr(ef); firstBad=firstBad||ef; } else clearErr(ef);
   return firstBad;
 }
 // Step 2 — required induction checklist answers (incl. the TMP question shown under the maps)
 function validateChecklist(){
   let firstBad=null;
-  CHECKLIST.forEach(c=>{
+  ACTIVE.forEach(c=>{
     if(!c.req) return;
     let field, ok;
     if(c.type==="yn"){ field=document.querySelector(`[data-yn="${c.id}"]`);
@@ -484,13 +565,15 @@ async function collect(){
       company:$("#f_company").value.trim(), phone:$("#f_phone").value.trim(),
       email:$("#f_email").value.trim(),
       site: site.key==="other" ? $("#f_siteOther").value.trim() : site.label,
-      siteKey: site.key
+      siteKey: site.key,
+      inCharge: $("#f_incharge").value==="__other" ? $("#f_inchargeOther").value.trim() : $("#f_incharge").value,
+      engaged: (document.querySelector('input[name=engaged]:checked')||{}).value||""
     },
     section2:{}, documents:[]
   };
-  CHECKLIST.forEach(c=>{
+  ACTIVE.forEach(c=>{
     if(c.type==="yn") data.section2[c.id]=(document.querySelector(`input[name="${c.id}"]:checked`)||{}).value||"";
-    else data.section2[c.id]=$("#c_"+c.id).value.trim();
+    else { const el=$("#c_"+c.id); if(el) data.section2[c.id]=el.value.trim(); }
   });
   // attachments
   for(const inp of document.querySelectorAll('input[type=file]')){
@@ -499,7 +582,27 @@ async function collect(){
       data.documents.push({docType:inp.dataset.label, ...b});
     }
   }
+  // The dashboard keys on these. No pass/fail quiz on the form anymore → completed = passed.
+  data.quizPassed = true;
+  data.id = (data.section1.date||"").replace(/-/g,"") + "-" +
+            data.section1.fullName.toLowerCase().replace(/[^a-z0-9]+/g,".") + "-" +
+            data.meta.submittedAt.slice(11,19).replace(/:/g,"");
   return data;
+}
+
+// Save a submission so the admin dashboard (same origin) can read it. Guards the
+// ~5MB localStorage quota: if full, retries without the (large) attachment data.
+function saveLocal(payload){
+  const KEY='ci-submissions';
+  let list=[]; try{ list=JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){}
+  list.unshift(payload);
+  try{ localStorage.setItem(KEY, JSON.stringify(list)); return true; }
+  catch(err){
+    const lite={...payload, documents:(payload.documents||[]).map(d=>({docType:d.docType,name:d.name,type:d.type,size:d.size}))};
+    list[0]=lite;
+    try{ localStorage.setItem(KEY, JSON.stringify(list)); return 'lite'; }
+    catch(e2){ return false; }
+  }
 }
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
@@ -525,21 +628,17 @@ $("#form").addEventListener("submit", async e=>{
   const btn=$("#submitBtn"); btn.disabled=true; btn.textContent="Submitting…";
   try{
     const payload=await collect();
+    // Always record locally so the admin dashboard on this device shows it straight away.
+    const saved=saveLocal(payload);
+    if(saved==='lite') toast("Saved — attachments were too large to store on this device, details kept.");
+    // If a Power Automate endpoint is configured, also push there (cross-device / SharePoint).
     if(WEBHOOK_URL){
       const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify(payload)});
       if(!r.ok) throw new Error("HTTP "+r.status);
-      toast("✓ Induction submitted. Thank you.");
-      btn.textContent="Submitted ✓";
-    } else {
-      // offline / testing mode
-      const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-      const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-      a.download=`induction-${payload.section1.siteKey}-${payload.section1.fullName.replace(/\s+/g,'_')}.json`;
-      a.click();
-      toast("No server configured — saved submission as JSON (test mode).");
-      btn.disabled=false; btn.textContent="Submit induction";
     }
+    if(saved!=='lite') toast("✓ Induction submitted. Thank you.");
+    btn.textContent="Submitted ✓";
   }catch(err){
     toast("Submit failed: "+err.message+". Please try again or notify BWS.");
     btn.disabled=false; btn.textContent="Submit induction";
