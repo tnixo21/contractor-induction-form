@@ -239,6 +239,7 @@
       <h2>All submissions
         <span style="display:flex;gap:8px">
           <button class="btn ghost" id="csvBtn">⬇ Download CSV</button>
+          <button class="btn ghost" id="clearBtn" title="Delete all submissions (e.g. test entries)">🗑 Clear submissions</button>
         </span>
       </h2>
       <div class="filters">
@@ -382,15 +383,11 @@ async function load(){
   try{ CFG = await CIStore.getConfigBundle(); }catch(e){ CFG={sites:[],contacts:{},checklist:null}; }
   let subs=[];
   try{ subs = await CIStore.getSubmissions(); }catch(e){ subs=[]; }
-  if(CIStore.mode==='server'){
-    DATA = subs; $("#demoBanner").classList.remove("show");
-    $("#srcBadge").textContent = "Live data ("+DATA.length+")";
-  } else if(subs.length){
-    DATA = subs; $("#demoBanner").classList.remove("show");
-    $("#srcBadge").textContent = "Local submissions ("+subs.length+")";
-  } else {
-    DATA = window.SAMPLE_INDUCTIONS||[]; flagDemo();
-  }
+  DATA = subs || [];
+  $("#demoBanner").classList.remove("show");
+  if(CIStore.mode==='server') $("#srcBadge").textContent = "Live data ("+DATA.length+")";
+  else if(DATA.length)        $("#srcBadge").textContent = "Local submissions ("+DATA.length+")";
+  else                        $("#srcBadge").textContent = "No submissions yet";
   DATA.sort((a,b)=>(b.meta.submittedAt||"").localeCompare(a.meta.submittedAt||""));
   buildSiteFilter(); stats(); render(); renderData(); analytics(); renderMaps();
   // Questions editor works off the loaded config
@@ -434,6 +431,8 @@ function overviewFiltered(){
 function render(){
   const list=overviewFiltered();
   $("#empty").style.display=list.length?"none":"block";
+  $("#empty").textContent = DATA.length ? "No inductions match your filters."
+    : "No inductions submitted yet — completed inductions will appear here.";
   $("#rows").innerHTML=list.map(r=>{
     const dc=docCount(r);
     return `<tr data-i="${DATA.indexOf(r)}">
@@ -713,6 +712,12 @@ $("#f_site").addEventListener("change",render);
 $("#f_quiz").addEventListener("change",render);
 $("#d_search").addEventListener("input",renderData);
 $("#csvBtn").addEventListener("click",exportCSV);
+$("#clearBtn").addEventListener("click", async ()=>{
+  if(!DATA.length){ alert("There are no submissions to clear."); return; }
+  if(!confirm("Delete ALL "+DATA.length+" submission(s)? This cannot be undone.\n\nUse this to remove test entries.")) return;
+  await CIStore.clearSubmissions();
+  await load();
+});
 $("#rows").addEventListener("click",e=>{ const tr=e.target.closest("tr"); if(tr) openDetail(+tr.dataset.i); });
 $("#drows").addEventListener("click",e=>{ const tr=e.target.closest("tr"); if(tr) openDetail(+tr.dataset.i); });
 $("#overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });

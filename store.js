@@ -89,6 +89,10 @@
 
     // ---- submissions ----
     async getSubmissions() { return SERVER ? await api('/submissions') : lsGet('ci-submissions', []); },
+    async clearSubmissions() {
+      if (SERVER) return api('/submissions', { method: 'DELETE' });
+      LS.removeItem('ci-submissions');
+    },
     async addSubmission(payload) {
       if (SERVER) { await api('/submissions', { method: 'POST', body: JSON.stringify(payload) }); return true; }
       // local: quota-guarded, drops attachment data if oversized

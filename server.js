@@ -116,6 +116,10 @@ app.post('/api/submissions', (req, res) => {
 app.get('/api/submissions', requireAdmin, (req, res) => {
   res.json(readStore().submissions || []);
 });
+app.delete('/api/submissions', requireAdmin, (req, res) => {
+  const s = readStore(); s.submissions = []; writeStore(s);
+  res.json({ ok: true });
+});
 
 /* --------------------------- static site --------------------------------- */
 app.use(express.static(__dirname));                  // serves index.html, admin.html, data/, images/, etc.
