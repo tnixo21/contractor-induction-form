@@ -246,6 +246,9 @@
 <footer>BWS HSSEQ &middot; Contractor Induction &middot; v1 (placeholder maps — final TMP diagrams pending)</footer>
 <div class="toast" id="toast"></div>
 
+<!-- Data layer: config.js sets CI_API_BASE (server injects '/api'); store.js picks API vs localStorage -->
+<script src="config.js"></script>
+<script src="store.js"></script>
 <script>
 /* ============================================================
    CONFIG — edit these as the project firms up
@@ -268,10 +271,11 @@ const BASE_SITES = [
   {key:"sydney",       label:"Sydney"},
   {key:"lae",          label:"Lae, PNG"}
 ];
-// Extra sites added from the admin "Site Maps" tab are stored in localStorage (same origin).
+// Extra sites, checklist overrides, contacts and maps come from the shared store
+// (CIStore → API when served by the server, else this device's localStorage).
+// Populated in boot() at the bottom of this script.
 let CUSTOM_SITES = [];
-try { CUSTOM_SITES = JSON.parse(localStorage.getItem('ci-sites')||'[]'); } catch(e) {}
-const SITES = [...BASE_SITES, ...CUSTOM_SITES, {key:"other", label:"Other"}];
+let SITES = [...BASE_SITES, {key:"other", label:"Other"}];
 
 // Contractor document uploads
 const DOCS = [
@@ -302,14 +306,9 @@ const DEFAULT_CHECKLIST = [
   {id:"comments",   type:"text",req:false, q:"Any training or additional comments?"},
   {id:"completedBy",type:"text",req:true,  q:"BWS team member – completed by"}
 ];
-// Apply admin overrides from the dashboard if present.
+// Effective checklist (defaults + any admin override) — loaded in boot().
 let CHECKLIST = DEFAULT_CHECKLIST;
-try {
-  const ov = JSON.parse(localStorage.getItem('ci-checklist')||'null');
-  if(Array.isArray(ov) && ov.length) CHECKLIST = ov;
-} catch(e) {}
-// Only enabled items are shown / validated / collected.
-const ACTIVE = CHECKLIST.filter(c=>c.enabled!==false);
+let ACTIVE = CHECKLIST.filter(c=>c.enabled!==false);   // only enabled items are shown/validated/collected
 
 /* ============================================================
    RENDER
@@ -320,19 +319,27 @@ let selectedSite = null;
 // default date = today
 $("#f_date").value = new Date().toISOString().slice(0,10);
 
-// sites
-$("#sites").innerHTML = SITES.map(s=>`
-  <label><input type="radio" name="site" value="${s.key}"><span>${s.label}</span></label>
-`).join("");
+// Render the site radios, document uploads and Section-2 checklist. Called from boot()
+// once SITES / ACTIVE have been loaded from the shared store.
+function renderForm(){
+  $("#sites").innerHTML = SITES.map(s=>`
+    <label><input type="radio" name="site" value="${s.key}"><span>${s.label}</span></label>
+  `).join("");
 
-// doc uploads
-$("#docUploads").innerHTML = DOCS.map(d=>`
-  <div class="upload">
-    <div class="ut"><span>${d.label}</span><span class="req-badge">if applicable</span></div>
-    <input type="file" accept="image/*,application/pdf" capture="environment"
-           multiple data-doc="${d.key}" data-label="${d.label}">
-    <div class="files" id="files_${d.key}"></div>
-  </div>`).join("");
+  $("#docUploads").innerHTML = DOCS.map(d=>`
+    <div class="upload">
+      <div class="ut"><span>${d.label}</span><span class="req-badge">if applicable</span></div>
+      <input type="file" accept="image/*,application/pdf" capture="environment"
+             multiple data-doc="${d.key}" data-label="${d.label}">
+      <div class="files" id="files_${d.key}"></div>
+    </div>`).join("");
+
+  // Section 2 list — TMP question is rendered under the site maps instead
+  $("#checklist").innerHTML = ACTIVE.filter(c=>c.id!=="tmp").map(renderItem).join("");
+  const tmpItem = ACTIVE.find(c=>c.id==="tmp");
+  $("#tmpQuestion").innerHTML = tmpItem ? renderItem(tmpItem) : "";
+  applyConditionals();
+}
 
 // checklist item -> HTML
 function renderItem(c){
@@ -356,12 +363,6 @@ function renderItem(c){
     <div class="err">Please answer.</div>
   </div>`;
 }
-// Section 2 list — TMP question is rendered under the site maps instead (see below)
-$("#checklist").innerHTML = ACTIVE.filter(c=>c.id!=="tmp").map(renderItem).join("");
-// Traffic Management Plan confirmation, shown directly beneath the per-site maps
-const tmpItem = ACTIVE.find(c=>c.id==="tmp");
-if(tmpItem) $("#tmpQuestion").innerHTML = renderItem(tmpItem);
-
 // Conditional fields (e.g. "What are those hazards?" only when Specific hazards = Yes)
 // Current answer of any named control — radio (checked), or select/text value.
 // Works across sections, so a Section-2 question can key off a Section-1 field like "engaged".
@@ -384,7 +385,6 @@ function applyConditionals(){
     if(!show){ const t=wrap.querySelector("textarea,input"); if(t) t.value=""; }
   });
 }
-applyConditionals();
 
 /* ============================================================
    SITE IMAGE PANEL (placeholder-aware)
@@ -403,13 +403,13 @@ function openDataUrl(dataUrl){
   try{ window.open(dataUrlToObjectUrl(dataUrl), '_blank'); }
   catch(e){ window.open(dataUrl,'_blank'); }
 }
-function makeFrame(frameEl, kind, site){
+async function makeFrame(frameEl, kind, site){
   // kind: 'tmp' | 'assembly'. Loads images/<kind>-<key>.png; falls back to a placeholder.
   const box = frameEl.parentElement; // .imgBox — gets a "has-map" highlight when a map is present
   const niceKind = kind==='tmp' ? 'Traffic Management Plan' : 'Emergency Assembly Point';
   const ico = kind==='tmp' ? '🗺️' : '📍';
-  // Prefer a map uploaded via the admin "Site Maps" tab (localStorage); else the committed PNG; else a placeholder.
-  const stored = localStorage.getItem((kind==='tmp'?'ci-tmp-':'ci-asm-')+site.key);
+  // Prefer a map uploaded via the admin "Site Maps" tab (shared store or localStorage); else the committed PNG; else a placeholder.
+  const stored = await CIStore.getMap(kind, site.key);
   frameEl.innerHTML = "";
   box.classList.remove('has-map');
 
@@ -454,17 +454,16 @@ function makeFrame(frameEl, kind, site){
   frameEl.appendChild(img);
 }
 function escHtml(s){ return String(s==null?"":s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
-// Per-site "who is in charge" contacts, managed from the dashboard Site Maps tab (same origin).
-function getContacts(key){ try{ return JSON.parse(localStorage.getItem('ci-contacts-'+key)||'[]'); }catch(e){ return []; } }
-function populateContacts(site){
+// Per-site "who is in charge" contacts, managed from the dashboard Site Maps tab.
+async function populateContacts(site){
   const sel=$("#f_incharge"), other=$("#f_inchargeOther");
-  const list=getContacts(site.key);
+  const list=await CIStore.getContacts(site.key);
   sel.innerHTML = `<option value="">Select…</option>`
     + list.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("")
     + `<option value="__other">Other…</option>`;
   other.style.display="none"; other.value="";
 }
-function showSite(site){
+async function showSite(site){
   makeFrame($("#tmpFrame"),'tmp',site);
   makeFrame($("#asmFrame"),'assembly',site);
   $("#sitePanel").classList.add("show");
@@ -590,21 +589,6 @@ async function collect(){
   return data;
 }
 
-// Save a submission so the admin dashboard (same origin) can read it. Guards the
-// ~5MB localStorage quota: if full, retries without the (large) attachment data.
-function saveLocal(payload){
-  const KEY='ci-submissions';
-  let list=[]; try{ list=JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){}
-  list.unshift(payload);
-  try{ localStorage.setItem(KEY, JSON.stringify(list)); return true; }
-  catch(err){
-    const lite={...payload, documents:(payload.documents||[]).map(d=>({docType:d.docType,name:d.name,type:d.type,size:d.size}))};
-    list[0]=lite;
-    try{ localStorage.setItem(KEY, JSON.stringify(list)); return 'lite'; }
-    catch(e2){ return false; }
-  }
-}
-
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"),3800);}
 
@@ -628,22 +612,39 @@ $("#form").addEventListener("submit", async e=>{
   const btn=$("#submitBtn"); btn.disabled=true; btn.textContent="Submitting…";
   try{
     const payload=await collect();
-    // Always record locally so the admin dashboard on this device shows it straight away.
-    const saved=saveLocal(payload);
-    if(saved==='lite') toast("Saved — attachments were too large to store on this device, details kept.");
-    // If a Power Automate endpoint is configured, also push there (cross-device / SharePoint).
+    // Record via the shared store (server API when deployed, else this device's localStorage).
+    const saved=await CIStore.addSubmission(payload);
+    if(saved===false) throw new Error("could not save");
+    // If a Power Automate endpoint is also configured, push there too (SharePoint/Teams).
     if(WEBHOOK_URL){
       const r=await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify(payload)});
       if(!r.ok) throw new Error("HTTP "+r.status);
     }
-    if(saved!=='lite') toast("✓ Induction submitted. Thank you.");
+    toast(saved==='lite'
+      ? "Saved — attachments were too large to store on this device, details kept."
+      : "✓ Induction submitted. Thank you.");
     btn.textContent="Submitted ✓";
   }catch(err){
     toast("Submit failed: "+err.message+". Please try again or notify BWS.");
     btn.disabled=false; btn.textContent="Submit induction";
   }
 });
+
+/* ============================================================
+   BOOT — load sites/checklist from the shared store, then render.
+   ============================================================ */
+async function boot(){
+  try{
+    CUSTOM_SITES = await CIStore.getSites();
+    const ov = await CIStore.getChecklist();
+    if(Array.isArray(ov) && ov.length) CHECKLIST = ov;
+  }catch(e){ /* fall back to defaults on any load error */ }
+  SITES = [...BASE_SITES, ...(CUSTOM_SITES||[]), {key:"other", label:"Other"}];
+  ACTIVE = CHECKLIST.filter(c=>c.enabled!==false);
+  renderForm();
+}
+boot();
 </script>
 </body>
 </html>

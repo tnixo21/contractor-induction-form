@@ -308,6 +308,9 @@
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <footer>BWS HSSEQ &middot; Induction Dashboard &middot; demo build</footer>
 
+<!-- Data layer: config.js sets CI_API_BASE (server injects '/api'); store.js picks API vs localStorage -->
+<script src="config.js"></script>
+<script src="store.js"></script>
 <script src="data/sample-inductions.js"></script>
 <script>
 /* ============================================================ CONFIG */
@@ -345,10 +348,12 @@ const DEFAULT_CHECKLIST = [
   {id:"comments",   type:"text",req:false, q:"Any training or additional comments?"},
   {id:"completedBy",type:"text",req:true,  q:"BWS team member – completed by"}
 ];
+// Config (sites, contacts, checklist) cached after load() from the shared store (CIStore).
+let CFG = { sites:[], contacts:{}, checklist:null };
 function getChecklist(){
-  try{ const o=JSON.parse(localStorage.getItem('ci-checklist')||'null');
-    if(Array.isArray(o)&&o.length) return o; }catch(e){}
-  return DEFAULT_CHECKLIST.map(c=>({...c}));
+  return (Array.isArray(CFG.checklist) && CFG.checklist.length)
+    ? CFG.checklist.map(c=>({...c}))
+    : DEFAULT_CHECKLIST.map(c=>({...c}));
 }
 // Labels used by the detail modal — derived from the effective (possibly overridden) checklist.
 function checkLabels(){
@@ -373,18 +378,23 @@ const $ = s=>document.querySelector(s);
 let DATA = [];
 
 /* ============================================================ LOAD */
-function getLocalSubs(){ try{ return JSON.parse(localStorage.getItem('ci-submissions')||'[]'); }catch(e){ return []; } }
 async function load(){
-  if(DATA_URL){
-    try{ const r=await fetch(DATA_URL); DATA=await r.json(); $("#srcBadge").textContent="Live data"; }
-    catch(e){ DATA=getLocalSubs(); if(DATA.length){ $("#srcBadge").textContent="Local submissions ("+DATA.length+")"; } else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo("live fetch failed"); } }
+  try{ CFG = await CIStore.getConfigBundle(); }catch(e){ CFG={sites:[],contacts:{},checklist:null}; }
+  let subs=[];
+  try{ subs = await CIStore.getSubmissions(); }catch(e){ subs=[]; }
+  if(CIStore.mode==='server'){
+    DATA = subs; $("#demoBanner").classList.remove("show");
+    $("#srcBadge").textContent = "Live data ("+DATA.length+")";
+  } else if(subs.length){
+    DATA = subs; $("#demoBanner").classList.remove("show");
+    $("#srcBadge").textContent = "Local submissions ("+subs.length+")";
   } else {
-    const local=getLocalSubs();
-    if(local.length){ DATA=local; $("#demoBanner").classList.remove("show"); $("#srcBadge").textContent="Local submissions ("+local.length+")"; }
-    else { DATA=window.SAMPLE_INDUCTIONS||[]; flagDemo(); }
+    DATA = window.SAMPLE_INDUCTIONS||[]; flagDemo();
   }
   DATA.sort((a,b)=>(b.meta.submittedAt||"").localeCompare(a.meta.submittedAt||""));
   buildSiteFilter(); stats(); render(); renderData(); analytics(); renderMaps();
+  // Questions editor works off the loaded config
+  QDRAFT = getChecklist().map(c=>({...c})); renderQuestions();
 }
 function flagDemo(extra){ $("#demoBanner").classList.add("show");
   $("#srcBadge").textContent="Sample data"+(extra?" ("+extra+")":""); }
@@ -512,16 +522,15 @@ function analytics(){
 }
 
 /* ============================================================ SITE MAPS
-   Images are stored in localStorage (same origin as the form, so they show
-   in index.html immediately). Keys: ci-tmp-<key> and ci-asm-<key>.
-   Custom sites added here live in localStorage 'ci-sites' (shared with the form).
+   Maps + contacts + custom sites all go through CIStore: the shared server when
+   deployed (cross-device), else this device's localStorage. Maps use data URLs;
+   kind = 'tmp' | 'assembly'.
    ============================================================ */
-function getCustomSites(){ try{ return JSON.parse(localStorage.getItem('ci-sites')||'[]'); }catch(e){ return []; } }
-function saveCustomSites(a){ localStorage.setItem('ci-sites', JSON.stringify(a)); }
-function imgKey(kind,key){ return (kind==='tmp'?'ci-tmp-':'ci-asm-')+key; }
+function getCustomSites(){ return CFG.sites||[]; }
+function getContacts(key){ return (CFG.contacts&&CFG.contacts[key])||[]; }
+function saveContacts(key,a){ CFG.contacts=CFG.contacts||{}; CFG.contacts[key]=a; CIStore.setContacts(key,a); }
 
-function slotHtml(kind,key){
-  const d=localStorage.getItem(imgKey(kind,key));
+function slotHtml(kind,key,d){
   const isImg = d && d.startsWith('data:image');
   const thumb = !d ? `<div class="thumb empty">${kind==='tmp'?'🗺️':'📍'}</div>`
               : isImg ? `<img class="thumb" src="${d}" alt="">`
@@ -535,9 +544,6 @@ function slotHtml(kind,key){
     </div>
   </div>`;
 }
-// Per-site contacts for the form's "Who is in charge?" dropdown (localStorage, same origin).
-function getContacts(key){ try{ return JSON.parse(localStorage.getItem('ci-contacts-'+key)||'[]'); }catch(e){ return []; } }
-function saveContacts(key,a){ localStorage.setItem('ci-contacts-'+key, JSON.stringify(a)); }
 function contactsHtml(key){
   const list=getContacts(key);
   const chips = list.length
@@ -546,30 +552,33 @@ function contactsHtml(key){
   return `<div class="contacts">${chips}
     <button type="button" class="mini" data-act="addcontact" data-key="${key}">＋ Add contact</button></div>`;
 }
-function renderMaps(){
+async function renderMaps(){
   const custom=getCustomSites();
   const sites=[...DEFAULT_SITES, ...custom];
-  $("#maps-body").innerHTML = sites.map(s=>{
+  const rows = await Promise.all(sites.map(async s=>{
     const isCustom = custom.some(c=>c.key===s.key);
+    const [tmp,asm] = await Promise.all([CIStore.getMap('tmp',s.key), CIStore.getMap('assembly',s.key)]);
     return `<tr>
       <td><div class="who">${esc(s.label)}</div><div class="co">${esc(s.key)}</div></td>
-      <td>${slotHtml('tmp',s.key)}</td>
-      <td>${slotHtml('assembly',s.key)}</td>
+      <td>${slotHtml('tmp',s.key,tmp)}</td>
+      <td>${slotHtml('assembly',s.key,asm)}</td>
       <td>${contactsHtml(s.key)}</td>
       <td>${isCustom?`<button type="button" class="mini danger" data-act="removesite" data-key="${s.key}">✕ site</button>`:''}</td>
     </tr>`;
-  }).join("");
+  }));
+  $("#maps-body").innerHTML = rows.join("");
+}
+async function persistMap(kind,key,dataUrl){
+  const ok = await CIStore.setMap(kind,key,dataUrl);
+  if(ok===false){ alert('That file is too large to store on this device (localStorage ~5MB). Use a smaller PDF/image, or deploy the server (Railway) where large maps are fine.'); return; }
+  renderMaps();
 }
 // Images get downscaled to a small PNG; PDFs (and other files) are stored as-is.
 function storeImage(kind,key,file){
   const isImage = /^image\//.test(file.type);
   const reader=new FileReader();
   reader.onload=()=>{
-    if(!isImage){
-      try{ localStorage.setItem(imgKey(kind,key), reader.result); renderMaps(); }
-      catch(err){ alert('That file is too large to store on this device (localStorage is ~5MB). Try a smaller PDF, or upload an image instead.'); }
-      return;
-    }
+    if(!isImage){ persistMap(kind,key,reader.result); return; }
     const img=new Image();
     img.onload=()=>{
       const max=1600; let w=img.width, h=img.height;
@@ -577,16 +586,15 @@ function storeImage(kind,key,file){
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
       let dataUrl; try{ dataUrl=c.toDataURL('image/png'); }catch(e){ dataUrl=reader.result; }
-      try{ localStorage.setItem(imgKey(kind,key), dataUrl); renderMaps(); }
-      catch(err){ alert('That image is too large to store on this device. Try a smaller/compressed file.'); }
+      persistMap(kind,key,dataUrl);
     };
     img.onerror=()=>alert('Could not read that image file.');
     img.src=reader.result;
   };
   reader.readAsDataURL(file);
 }
-function downloadImage(kind,key){
-  const d=localStorage.getItem(imgKey(kind,key)); if(!d) return;
+async function downloadImage(kind,key){
+  const d=await CIStore.getMap(kind,key); if(!d) return;
   const mime=(d.match(/^data:(.*?);base64/)||[])[1]||'';
   const ext = mime==='application/pdf' ? '.pdf' : mime==='image/jpeg' ? '.jpg' : '.png';
   const a=document.createElement('a'); a.href=d;
@@ -599,7 +607,7 @@ function addSite(){
   if(!key){ alert('Please use a name with letters or numbers.'); return; }
   const custom=getCustomSites();
   if(DEFAULT_SITES.some(s=>s.key===key)||custom.some(s=>s.key===key)){ alert('That site already exists.'); return; }
-  custom.push({key,label}); saveCustomSites(custom); renderMaps();
+  const next=[...custom,{key,label}]; CFG.sites=next; CIStore.setSites(next); renderMaps();
 }
 
 /* ============================================================ ATTACHMENTS */
@@ -720,22 +728,23 @@ $("#maps-body").addEventListener("click", e=>{
   const b=e.target.closest('button[data-act]'); if(!b) return;
   const {act,kind,key,idx}=b.dataset;
   if(act==='download') downloadImage(kind,key);
-  else if(act==='remove'){ localStorage.removeItem(imgKey(kind,key)); renderMaps(); }
+  else if(act==='remove'){ CIStore.removeMap(kind,key).then(renderMaps); }
   else if(act==='addcontact'){
     const name=(prompt('Name of person in charge (as shown to contractors):')||'').trim();
     if(!name) return;
-    const list=getContacts(key);
+    const list=getContacts(key).slice();
     if(list.includes(name)){ alert('That contact is already listed.'); return; }
     list.push(name); saveContacts(key,list); renderMaps();
   }
   else if(act==='delcontact'){
-    const list=getContacts(key); list.splice(+idx,1); saveContacts(key,list); renderMaps();
+    const list=getContacts(key).slice(); list.splice(+idx,1); saveContacts(key,list); renderMaps();
   }
   else if(act==='removesite'){
     if(!confirm('Remove this site and its uploaded maps and contacts?')) return;
-    localStorage.removeItem(imgKey('tmp',key)); localStorage.removeItem(imgKey('assembly',key));
-    localStorage.removeItem('ci-contacts-'+key);
-    saveCustomSites(getCustomSites().filter(s=>s.key!==key)); renderMaps();
+    Promise.all([CIStore.removeMap('tmp',key), CIStore.removeMap('assembly',key), CIStore.setContacts(key,[])])
+      .then(()=>{ if(CFG.contacts) delete CFG.contacts[key];
+        const next=getCustomSites().filter(s=>s.key!==key); CFG.sites=next; return CIStore.setSites(next); })
+      .then(renderMaps);
   }
 });
 
@@ -745,7 +754,7 @@ $("#maps-body").addEventListener("click", e=>{
    but not deleted; added questions can be removed.
    ============================================================ */
 const CORE_IDS = new Set(DEFAULT_CHECKLIST.map(c=>c.id));
-let QDRAFT = getChecklist().map(c=>({...c}));
+let QDRAFT = [];                       // populated in load() once config is fetched
 function markQDirty(v){ $("#qDirty").classList.toggle('show', v); }
 function renderQuestions(){
   $("#q-list").innerHTML = QDRAFT.map((c,i)=>{
@@ -785,18 +794,21 @@ $("#addQBtn").addEventListener("click", ()=>{
   QDRAFT.push({id:'custom_'+Date.now().toString(36), type:'yn', req:true, enabled:true, q:'New question'});
   markQDirty(true); renderQuestions();
 });
-$("#saveQBtn").addEventListener("click", ()=>{
+$("#saveQBtn").addEventListener("click", async ()=>{
   const clean = QDRAFT.filter(c=>String(c.q||'').trim());
-  localStorage.setItem('ci-checklist', JSON.stringify(clean));
+  await CIStore.setChecklist(clean);
+  CFG.checklist = clean;
   QDRAFT = clean.map(c=>({...c})); markQDirty(false); renderQuestions();
-  alert('Saved. The contractor form on this device will now use these questions.');
+  alert(CIStore.mode==='server'
+    ? 'Saved. The contractor form now uses these questions for everyone.'
+    : 'Saved. The contractor form on this device will now use these questions.');
 });
-$("#resetQBtn").addEventListener("click", ()=>{
-  if(!confirm('Reset all questions to the defaults? This clears your overrides on this device.')) return;
-  localStorage.removeItem('ci-checklist');
+$("#resetQBtn").addEventListener("click", async ()=>{
+  if(!confirm('Reset all questions to the defaults? This clears your overrides.')) return;
+  await CIStore.setChecklist(null);
+  CFG.checklist = null;
   QDRAFT = DEFAULT_CHECKLIST.map(c=>({...c})); markQDirty(false); renderQuestions();
 });
-renderQuestions();
 
 load();
 </script>
